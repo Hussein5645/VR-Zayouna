@@ -15,7 +15,7 @@
       "roomSize": 5,
       "labels": [
         { "to": "events",  "yaw": 125, "pitch": -5, "distance": 3.5 },
-        { "to": "terrace", "yaw": 50,  "pitch": -4, "distance": 4.5 },
+        { "to": "bedroom", "yaw": 50,  "pitch": -4, "distance": 4.5 },
         { "to": "gym",     "yaw": -135, "pitch": -4, "distance": 4.5 }
       ]
     },
@@ -42,20 +42,19 @@
       "roomSize": 25,
       "labels": [
         { "to": "events",  "yaw": 140, "pitch": -4, "distance": 6 },
-        { "to": "terrace", "yaw": 45,  "pitch": -4, "distance": 8 }
+        { "to": "bedroom", "yaw": 45,  "pitch": -4, "distance": 8 }
       ]
     },
     {
-      "id": "terrace",
-      "name": "Terrace",
-      "image": "spaces/outdoor_umbrellas_16k.hdr",
-      "exposure": 0.8,
-      "heading": 90,
+      "id": "bedroom",
+      "name": "Bedroom",
+      "image": "spaces/bedroom.jpg",
+      "heading": 0,
       "cameraHeight": 1.6,
-      "roomSize": 15,
+      "roomSize": 5,
       "labels": [
-        { "to": "entrance", "yaw": 120, "pitch": -4, "distance": 5 },
-        { "to": "night",    "yaw": -50, "pitch": -4, "distance": 7 }
+        { "to": "entrance", "yaw": 180, "pitch": -4, "distance": 3.5 },
+        { "to": "night",    "yaw": -15, "pitch": -4, "distance": 3.5 }
       ]
     },
     {
