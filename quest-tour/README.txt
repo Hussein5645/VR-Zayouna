@@ -82,7 +82,9 @@ Human scale:
   Rooms feel too big?   lower roomSize / ceilingHeight for that space, or set
                         "roomScale" at the top of tour.json below 1 (e.g. 0.85)
                         to shrink every room at once.
-  Floor too high/low?   adjust cameraHeight (renders are often 1.4-1.6).
+  Feel too short/tall?  cameraHeight is how far the floor sits below your eyes in
+                        VR (default 1.75). Raise it to feel taller. The tour follows
+                        your real head height, so it works seated or standing.
   Shooting tips: tripod at ~1.6 m, level, nothing very close to the lens.
 
 Image tips:

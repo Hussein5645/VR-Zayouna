@@ -11,7 +11,7 @@
       "name": "Living & Dining",
       "image": "spaces/living-dining.jpg",
       "heading": 0,
-      "cameraHeight": 1.6,
+      "cameraHeight": 1.75,
       "ceilingHeight": 2.8,
       "roomSize": 4.5,
       "labels": [
@@ -25,7 +25,7 @@
       "name": "Bedroom",
       "image": "spaces/bedroom.jpg",
       "heading": 0,
-      "cameraHeight": 1.6,
+      "cameraHeight": 1.75,
       "ceilingHeight": 2.8,
       "roomSize": 3.5,
       "labels": [
@@ -37,7 +37,7 @@
       "name": "Events Hall",
       "image": "spaces/events-hall.jpg",
       "heading": 0,
-      "cameraHeight": 1.6,
+      "cameraHeight": 1.75,
       "ceilingHeight": 4.5,
       "roomSize": 9,
       "labels": [
@@ -50,7 +50,7 @@
       "name": "Gym",
       "image": "spaces/gym-3.jpg",
       "heading": 0,
-      "cameraHeight": 1.6,
+      "cameraHeight": 1.75,
       "ceilingHeight": 3.2,
       "roomSize": 6,
       "labels": [

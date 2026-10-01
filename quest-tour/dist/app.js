@@ -175,9 +175,9 @@ async function loadLogo(){
  if(logo.style!=='original'){const d=ctx.getImageData(0,0,c.width,c.height),p=d.data;for(let i=0;i<p.length;i+=4){const a=p[i+3]/255*(1-(p[i]+p[i+1]+p[i+2])/765);p[i]=p[i+1]=p[i+2]=255;p[i+3]=a*255}ctx.putImageData(d,0,0)}
  const url=c.toDataURL(),html=document.querySelector('#logo');html.src=url;html.hidden=!!session;document.querySelector('#loader-logo').src=url;
  const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=4;
- const loaderLogo=new THREE.Mesh(new THREE.PlaneGeometry(.6,.6*c.height/c.width),new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false}));loaderLogo.position.y=.16;vrLoader.add(loaderLogo);
+ const loaderLogo=new THREE.Mesh(new THREE.PlaneGeometry(.4,.4*c.height/c.width),new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false}));loaderLogo.position.y=.16;vrLoader.add(loaderLogo);
  // In VR the logo rests on a small dark slab below eye level.
- const w=.7,h=w*c.height/c.width,padX=.1,padY=.07;
+ const w=.4,h=w*c.height/c.width,padX=.07,padY=.05;
  const slab=new THREE.Mesh(new THREE.ExtrudeGeometry(pillShape(w+padX*2,h+padY*2),{depth:SLAB_DEPTH,bevelEnabled:true,bevelThickness:BEVEL,bevelSize:BEVEL,bevelSegments:3,curveSegments:24}),new THREE.MeshStandardMaterial({color:0x0e1214,roughness:.55,metalness:0,transparent:true,opacity:.8}));
  const face=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false}));face.position.z=FRONT;
  brand.add(slab,face);brand.position.set(0,-1.2,-2.2);brand.lookAt(rig.getWorldPosition(new THREE.Vector3()));
@@ -292,8 +292,9 @@ window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camer
 let time=performance.now();
 renderer.setAnimationLoop(()=>{
  const now=performance.now(),dt=Math.min((now-time)/1000,.1);time=now;
- // Without floor-level tracking, lower the room so the capture point sits at your head.
- stage.position.y=renderer.xr.isPresenting&&!floorLevel?-rig.position.y:0;
+ // In VR the capture point always sits at your actual eye height, so the floor is cameraHeight below your eyes
+ // whether you stand, sit, or the headset's floor is set wrong. Turning and leaning still give real parallax.
+ stage.position.y=renderer.xr.isPresenting?renderer.xr.getCamera().position.y-rig.position.y:0;
  if(!renderer.xr.isPresenting){camera.position.y=rig.position.y;camera.rotation.set(-pitch,yaw,0,'YXZ');ray.setFromCamera(pointer,camera);hover=hit();if(!drag)showSpot();renderer.domElement.style.cursor=hover?'pointer':drag?'grabbing':editMode?'crosshair':'grab'}
  else{hover=null;for(const c of controllers){ray.setFromXRController(c);const h=hit();if(h)hover=h}}
  animateLabels(dt);brand.visible=renderer.xr.isPresenting&&!loading;vrLoader.visible=renderer.xr.isPresenting&&loading;if(vrLoader.visible)vrShine.position.x=reducedMotion.matches?-1:(now/1400%1)*1.3-.15;
