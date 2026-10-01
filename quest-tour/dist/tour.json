@@ -52,8 +52,20 @@
       "cameraHeight": 1.6,
       "roomSize": 5,
       "labels": [
-        { "to": "entrance", "yaw": 180, "pitch": -4, "distance": 3.5 },
+        { "to": "living",   "yaw": 180, "pitch": -4, "distance": 3.5 },
         { "to": "night",    "yaw": -15, "pitch": -4, "distance": 3.5 }
+      ]
+    },
+    {
+      "id": "living",
+      "name": "Living & Dining",
+      "image": "spaces/living-dining.jpg",
+      "heading": 0,
+      "cameraHeight": 1.6,
+      "roomSize": 7,
+      "labels": [
+        { "to": "bedroom",  "yaw": -165, "pitch": -4, "distance": 5 },
+        { "to": "entrance", "yaw": 172,  "pitch": -4, "distance": 5 }
       ]
     },
     {
