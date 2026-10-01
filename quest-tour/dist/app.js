@@ -21,24 +21,30 @@ const world=new THREE.Scene(),camera=new THREE.PerspectiveCamera(75,innerWidth/i
 // Human scale: y=0 is the real floor. Each panorama is wrapped on a "grounded" sphere centred at the
 // space's cameraHeight, whose bottom is flattened into a floor and whose walls sit roomSize metres away.
 // It stays fixed in the room (it no longer follows your head), so leaning gives real parallax on the floor.
-const eyeHeight=i=>spaces[i]?.cameraHeight??1.6,roomSize=i=>Math.max(spaces[i]?.roomSize??8,eyeHeight(i)*2);
+// The room is a box-like shape: a flat floor at your feet, a flat ceiling at ceilingHeight and walls at roomSize.
+// tour.roomScale shrinks or grows every room at once (walls and ceilings; the floor always stays at your feet).
+const eyeHeight=i=>spaces[i]?.cameraHeight??1.6;
+const ceilingAbove=i=>Math.max((spaces[i]?.ceilingHeight??2.8)*(tour.roomScale??1)-eyeHeight(i),.5);// metres from eye to ceiling
+const roomSize=i=>Math.max((spaces[i]?.roomSize??5)*(tour.roomScale??1),eyeHeight(i)*1.6,ceilingAbove(i)*1.6);
 const shapes=new Map();
-function groundedGeometry(h,R){
- const key=h+'/'+R;
+// Presses the part of the sphere beyond `limit` (below the floor or above the ceiling) flat onto that plane, with a smooth bend.
+const flatten=(y,limit)=>{const y1=limit*1.5;return Math.abs(y)>Math.abs(y1)?limit/y:1-y*y/(3*y1*y1)};
+function groundedGeometry(h,R,c){
+ const key=h+'/'+R+'/'+c;
  if(!shapes.has(key)){
   // Mirrored so the image reads correctly from inside (faces point inward), and turned so the image centre is straight ahead (yaw 0).
-  const g=new THREE.SphereGeometry(R,128,96).scale(-1,1,1).rotateY(-Math.PI/2),pos=g.attributes.position,v=new THREE.Vector3(),y1=-h*1.5;
-  // Same projection as three.js GroundedSkybox: below 1.5×height the sphere is pressed flat onto the floor, with a smooth bend above it.
-  for(let i=0;i<pos.count;i++){v.fromBufferAttribute(pos,i);if(v.y<0){v.multiplyScalar(v.y<y1?-h/v.y:1-v.y*v.y/(3*y1*y1));pos.setXYZ(i,v.x,v.y,v.z)}}
+  const g=new THREE.SphereGeometry(R,128,96).scale(-1,1,1).rotateY(-Math.PI/2),pos=g.attributes.position,v=new THREE.Vector3();
+  // Same projection as three.js GroundedSkybox for the floor, mirrored for the ceiling.
+  for(let i=0;i<pos.count;i++){v.fromBufferAttribute(pos,i);if(v.y!==0){v.multiplyScalar(v.y<0?flatten(v.y,-h):flatten(v.y,c));pos.setXYZ(i,v.x,v.y,v.z)}}
   shapes.set(key,g);
  }
  return shapes.get(key);
 }
-function placeSpace(mesh,i){mesh.geometry=groundedGeometry(eyeHeight(i),roomSize(i));mesh.position.y=eyeHeight(i)}
+function placeSpace(mesh,i){mesh.geometry=groundedGeometry(eyeHeight(i),roomSize(i),ceilingAbove(i));mesh.position.y=eyeHeight(i)}
 // stage holds everything that belongs to the room; it only moves if the headset has no floor-level tracking.
 const stage=new THREE.Group();world.add(stage);
 // The panorama stays hidden until the first space is ready, so VR shows the dark loading room.
-const material=new THREE.MeshBasicMaterial({color:0xffffff,depthWrite:false});const sphere=new THREE.Mesh(groundedGeometry(1.6,8),material);sphere.visible=false;stage.add(sphere);
+const material=new THREE.MeshBasicMaterial({color:0xffffff,depthWrite:false});const sphere=new THREE.Mesh(groundedGeometry(1.6,5,1.2),material);sphere.visible=false;stage.add(sphere);
 // rig sits at the capture point (eye height). Labels, the VR logo and the VR loading screen live in it.
 const rig=new THREE.Group();rig.position.y=1.6;stage.add(rig);
 // Labels sit in a group that turns with the panorama, so their yaw is relative to the image.
@@ -129,7 +135,7 @@ function makeLabel(spec){
  const text=(spec.text??(clickable?spaces[target].name:'')).toUpperCase();
  const p=rad(spec.pitch??-6),y=rad(spec.yaw??0),R=roomSize(current);
  // Keep the label inside the room: in front of the walls and above the floor, so its depth matches the image behind it.
- const surface=p<0?Math.min(R,eyeHeight(current)/Math.sin(-p)):R;
+ const surface=p<0?Math.min(R,eyeHeight(current)/Math.sin(-p)):p>0?Math.min(R,ceilingAbove(current)/Math.sin(p)):R;
  const distance=Math.min(spec.distance??R*.6,surface*.9),h=.24*Math.pow(distance/4,.6)*(spec.scale??1);// far labels shrink, but stay readable
  const face=labelFace(text,clickable),w=h*face.aspect;
  const root=new THREE.Group();

@@ -39,8 +39,9 @@ Each space looks like this:
     "exposure": 1,                           .hdr only: brighter > 1, darker < 1
     "heading": 0,                            image yaw you face on arrival (0 = image centre)
     "cameraHeight": 1.6,                     metres; lens height when the photo was taken
-    "roomSize": 5,                           metres; rough distance to the walls
-                                             (small room 4-6, hall 10-15, outdoors 20+)
+    "ceilingHeight": 2.8,                    metres from floor to ceiling (default 2.8)
+    "roomSize": 4.5,                         metres; rough distance to the walls
+                                             (bedroom 3-4, living 4-5, hall 8-10)
     "labels": [
       { "to": "events", "yaw": -35, "pitch": -6, "distance": 4 }
     ]
@@ -74,11 +75,14 @@ Logo: replace dist/assets/logo.png. "style": "white" turns a dark logo white so 
 reads over the panorama; use "original" for a logo that already has its own colours.
 
 Human scale:
-  Each panorama gets a real floor at your feet (the bottom of the image is laid
-  flat at cameraHeight below the capture point) and walls at roomSize. In VR the
-  floor matches your real floor and the room stays still when you lean, so it
-  feels life-size. If a floor feels too high or low, adjust cameraHeight; if
-  walls feel too close or far, adjust roomSize.
+  Each panorama is shaped like a real room: a flat floor at your feet (the bottom
+  of the image is laid flat at cameraHeight below the capture point), a flat
+  ceiling at ceilingHeight and walls at roomSize. In VR the floor matches your
+  real floor and the room stays still when you lean, so it feels life-size.
+  Rooms feel too big?   lower roomSize / ceilingHeight for that space, or set
+                        "roomScale" at the top of tour.json below 1 (e.g. 0.85)
+                        to shrink every room at once.
+  Floor too high/low?   adjust cameraHeight (renders are often 1.4-1.6).
   Shooting tips: tripod at ~1.6 m, level, nothing very close to the lens.
 
 Image tips:
