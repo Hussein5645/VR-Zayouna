@@ -26,7 +26,8 @@ const shapes=new Map();
 function groundedGeometry(h,R){
  const key=h+'/'+R;
  if(!shapes.has(key)){
-  const g=new THREE.SphereGeometry(R,128,96),pos=g.attributes.position,v=new THREE.Vector3(),y1=-h*1.5;
+  // Mirrored so the image reads correctly from inside (faces point inward), and turned so the image centre is straight ahead (yaw 0).
+  const g=new THREE.SphereGeometry(R,128,96).scale(-1,1,1).rotateY(-Math.PI/2),pos=g.attributes.position,v=new THREE.Vector3(),y1=-h*1.5;
   // Same projection as three.js GroundedSkybox: below 1.5×height the sphere is pressed flat onto the floor, with a smooth bend above it.
   for(let i=0;i<pos.count;i++){v.fromBufferAttribute(pos,i);if(v.y<0){v.multiplyScalar(v.y<y1?-h/v.y:1-v.y*v.y/(3*y1*y1));pos.setXYZ(i,v.x,v.y,v.z)}}
   shapes.set(key,g);
@@ -37,7 +38,7 @@ function placeSpace(mesh,i){mesh.geometry=groundedGeometry(eyeHeight(i),roomSize
 // stage holds everything that belongs to the room; it only moves if the headset has no floor-level tracking.
 const stage=new THREE.Group();world.add(stage);
 // The panorama stays hidden until the first space is ready, so VR shows the dark loading room.
-const material=new THREE.MeshBasicMaterial({color:0xffffff,side:THREE.BackSide,depthWrite:false});const sphere=new THREE.Mesh(groundedGeometry(1.6,8),material);sphere.visible=false;stage.add(sphere);
+const material=new THREE.MeshBasicMaterial({color:0xffffff,depthWrite:false});const sphere=new THREE.Mesh(groundedGeometry(1.6,8),material);sphere.visible=false;stage.add(sphere);
 // rig sits at the capture point (eye height). Labels, the VR logo and the VR loading screen live in it.
 const rig=new THREE.Group();rig.position.y=1.6;stage.add(rig);
 // Labels sit in a group that turns with the panorama, so their yaw is relative to the image.
@@ -178,7 +179,7 @@ async function loadLogo(){
 // Directional panorama reprojection gives a Street View-style forward step.
 // ---------------------------------------------------------------------------
 const incomingMaterial=new THREE.ShaderMaterial({
- side:THREE.BackSide,depthTest:false,depthWrite:false,precision:'highp',
+ depthTest:false,depthWrite:false,precision:'highp',
  uniforms:{fromImage:{value:null},toImage:{value:null},fromHeading:{value:0},toHeading:{value:0},progress:{value:0},travelStrength:{value:.22},travelDirection:{value:new THREE.Vector3(0,0,-1)}},
  vertexShader:`varying vec3 panoDirection;void main(){panoDirection=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
  fragmentShader:`
@@ -189,7 +190,8 @@ const incomingMaterial=new THREE.ShaderMaterial({
    ray=normalize(ray);
    float c=cos(heading),s=sin(heading);
    ray=vec3(c*ray.x-s*ray.z,ray.y,s*ray.x+c*ray.z);
-   return vec2(fract(atan(ray.z,-ray.x)/6.28318530718+1.0),acos(clamp(-ray.y,-1.0,1.0))/3.14159265359);
+   // Same mapping as the panorama mesh: image centre straight ahead (-Z), turning right moves right in the image.
+   return vec2(.5+atan(ray.x,-ray.z)/6.28318530718,acos(clamp(-ray.y,-1.0,1.0))/3.14159265359);
  }
  void main(){
    vec3 ray=normalize(panoDirection);

@@ -10,12 +10,13 @@
       "name": "Entrance Hall",
       "image": "spaces/entrance_hall_8k.hdr",
       "exposure": 1,
-      "heading": 0,
+      "heading": 90,
       "cameraHeight": 1.6,
       "roomSize": 5,
       "labels": [
-        { "to": "events",  "yaw": -35, "pitch": -5, "distance": 3.5 },
-        { "to": "terrace", "yaw": 40,  "pitch": -4, "distance": 4.5 }
+        { "to": "events",  "yaw": 125, "pitch": -5, "distance": 3.5 },
+        { "to": "terrace", "yaw": 50,  "pitch": -4, "distance": 4.5 },
+        { "to": "gym",     "yaw": -135, "pitch": -4, "distance": 4.5 }
       ]
     },
     {
@@ -23,12 +24,12 @@
       "name": "Events Hall",
       "image": "spaces/events_hall_interior_8k.hdr",
       "exposure": 1,
-      "heading": 0,
+      "heading": 90,
       "cameraHeight": 1.6,
       "roomSize": 12,
       "labels": [
-        { "to": "entrance", "yaw": 180, "pitch": -5, "distance": 5 },
-        { "to": "night", "text": "Step outside", "yaw": 30, "pitch": -3, "distance": 8 }
+        { "to": "entrance", "yaw": -90, "pitch": -5, "distance": 5 },
+        { "to": "night", "text": "Step outside", "yaw": 60, "pitch": -3, "distance": 8 }
       ]
     },
     {
@@ -36,11 +37,11 @@
       "name": "City at Night",
       "image": "spaces/modern_buildings_night_8k.hdr",
       "exposure": 1.4,
-      "heading": 0,
+      "heading": 90,
       "cameraHeight": 1.6,
       "roomSize": 25,
       "labels": [
-        { "to": "events",  "yaw": -50, "pitch": -4, "distance": 6 },
+        { "to": "events",  "yaw": 140, "pitch": -4, "distance": 6 },
         { "to": "terrace", "yaw": 45,  "pitch": -4, "distance": 8 }
       ]
     },
@@ -49,12 +50,23 @@
       "name": "Terrace",
       "image": "spaces/outdoor_umbrellas_16k.hdr",
       "exposure": 0.8,
-      "heading": 0,
+      "heading": 90,
       "cameraHeight": 1.6,
       "roomSize": 15,
       "labels": [
-        { "to": "entrance", "yaw": -30, "pitch": -4, "distance": 5 },
-        { "to": "night",    "yaw": 140, "pitch": -4, "distance": 7 }
+        { "to": "entrance", "yaw": 120, "pitch": -4, "distance": 5 },
+        { "to": "night",    "yaw": -50, "pitch": -4, "distance": 7 }
+      ]
+    },
+    {
+      "id": "gym",
+      "name": "Gym",
+      "image": "spaces/gym.webp",
+      "heading": 0,
+      "cameraHeight": 1.6,
+      "roomSize": 10,
+      "labels": [
+        { "to": "entrance", "yaw": 180, "pitch": -4, "distance": 4 }
       ]
     }
   ]

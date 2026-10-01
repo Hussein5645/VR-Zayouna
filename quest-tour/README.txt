@@ -2,7 +2,7 @@ SJ PARTNERS 360 - QUEST PANORAMA TOUR
 
 Files:
   dist/tour.json      <- EDIT THIS: spaces, images, label positions, logo
-  dist/spaces/        <- put your 360 images here (.hdr, .jpg, .png can be mixed)
+  dist/spaces/        <- put your 360 images here (.hdr, .jpg, .png, .webp can be mixed)
   dist/assets/logo.png  logo shown at the bottom (browser + VR)
   dist/index.html     interface and styling
   dist/app.js         viewer, 3D labels, transitions and WebXR
@@ -35,9 +35,9 @@ Each space looks like this:
   {
     "id": "entrance",                        short name used by labels (no spaces)
     "name": "Entrance Hall",                 shown at the top and on labels
-    "image": "spaces/entrance_hall_8k.hdr",  .hdr, .jpg or .png (2:1 equirectangular)
+    "image": "spaces/entrance_hall_8k.hdr",  .hdr, .jpg, .png or .webp (2:1 equirectangular)
     "exposure": 1,                           .hdr only: brighter > 1, darker < 1
-    "heading": 0,                            degrees; which way you face on arrival
+    "heading": 0,                            image yaw you face on arrival (0 = image centre)
     "cameraHeight": 1.6,                     metres; lens height when the photo was taken
     "roomSize": 5,                           metres; rough distance to the walls
                                              (small room 4-6, hall 10-15, outdoors 20+)
