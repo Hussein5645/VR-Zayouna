@@ -1,4 +1,4 @@
-import * as THREE from './assets/three.module.js';
+import * as THREE from 'three';
 
 // ---------------------------------------------------------------------------
 // Tour content lives in tour.json (spaces, images, label positions, logo).
@@ -61,13 +61,15 @@ const loaderBox=document.querySelector('#loader'),loaderBar=document.querySelect
 // The same loading screen in VR: logo, thin bar and counter floating in front of you.
 const vrLoader=new THREE.Group();vrLoader.position.set(0,0,-2.4);vrLoader.visible=false;world.add(vrLoader);
 const vrTrack=new THREE.Mesh(new THREE.PlaneGeometry(1,.008),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.15,depthWrite:false}));
-const vrFill=new THREE.Mesh(new THREE.PlaneGeometry(1,.008).translate(.5,0,0),new THREE.MeshBasicMaterial({color:0xffffff}));vrFill.position.set(-.5,0,.001);vrFill.scale.x=.0001;
+const vrFill=new THREE.Mesh(new THREE.PlaneGeometry(1,.008).translate(.5,0,0),new THREE.MeshBasicMaterial({color:0xcfd5d8}));vrFill.position.set(-.5,0,.001);vrFill.scale.x=.0001;
+// A soft glint that sweeps along the filled part of the bar (it is a child of the fill, so it stays inside it).
+const vrShine=new THREE.Mesh(new THREE.PlaneGeometry(.3,.03),new THREE.MeshBasicMaterial({map:glowTexture('rgba(255,255,255,1)','rgba(255,255,255,0)'),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));vrShine.position.z=.001;vrFill.add(vrShine);
 const vrTextCanvas=document.createElement('canvas');vrTextCanvas.width=1024;vrTextCanvas.height=64;const vrTextMap=new THREE.CanvasTexture(vrTextCanvas);vrTextMap.colorSpace=THREE.SRGBColorSpace;
 const vrText=new THREE.Mesh(new THREE.PlaneGeometry(1,.0625),new THREE.MeshBasicMaterial({map:vrTextMap,transparent:true,depthWrite:false}));vrText.position.y=-.08;
 vrLoader.add(vrTrack,vrFill,vrText);
 function updateLoader(){
  const p=fraction.reduce((a,b)=>a+b,0)/spaces.length,text=`Loading spaces ${ready} / ${spaces.length}  ·  ${Math.round(p*100)}%`;
- loaderBar.style.transform=`scaleX(${p})`;vrFill.scale.x=Math.max(p,.0001);
+ loaderBar.style.width=p*100+'%';vrFill.scale.x=Math.max(p,.0001);
  if(loaderText.textContent===text)return;
  loaderText.textContent=text;
  const ctx=vrTextCanvas.getContext('2d');ctx.clearRect(0,0,1024,64);ctx.font='500 28px "Segoe UI",system-ui,sans-serif';ctx.letterSpacing='5px';ctx.fillStyle='rgba(255,255,255,.6)';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text.toUpperCase(),512,34);vrTextMap.needsUpdate=true;
@@ -214,6 +216,15 @@ function hit(){let o=ray.intersectObjects(group.children,true)[0]?.object;while(
 function activate(){const m=hit();if(m){m.getWorldPosition(tmp);go(m.userData.target,new THREE.Vector3(tmp.x,0,tmp.z).normalize())}else if(editMode)copySpot()}
 renderer.domElement.addEventListener('pointerdown',e=>{drag=true;moved=false;last={x:e.clientX,y:e.clientY};renderer.domElement.setPointerCapture(e.pointerId)});renderer.domElement.addEventListener('pointermove',e=>{pointer.set(e.clientX/innerWidth*2-1,1-e.clientY/innerHeight*2);if(drag){const dx=e.clientX-last.x,dy=e.clientY-last.y;if(Math.abs(dx)+Math.abs(dy)>2)moved=true;yaw-=dx*.004;pitch=Math.max(-1.45,Math.min(1.45,pitch+dy*.004));last={x:e.clientX,y:e.clientY}}});renderer.domElement.addEventListener('pointerup',e=>{drag=false;if(!moved){pointer.set(e.clientX/innerWidth*2-1,1-e.clientY/innerHeight*2);ray.setFromCamera(pointer,camera);activate()}});renderer.domElement.addEventListener('pointercancel',()=>drag=false);
 const controllers=[];for(let i=0;i<2;i++){const c=renderer.xr.getController(i);world.add(c);const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(0,0,-5)]),new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.5}));c.add(line);c.addEventListener('select',()=>{ray.setFromXRController(c);activate()});controllers.push(c)}
+// Quest hands: real hand meshes with hand tracking (pinch to select), controller models when holding controllers.
+// The models come from the official WebXR input profiles; if they can't load, the pointer rays still work.
+Promise.all([import('three/addons/webxr/XRHandModelFactory.js'),import('three/addons/webxr/XRControllerModelFactory.js')]).then(([{XRHandModelFactory},{XRControllerModelFactory}])=>{
+ const handModels=new XRHandModelFactory(),controllerModels=new XRControllerModelFactory();
+ for(let i=0;i<2;i++){
+  const hand=renderer.xr.getHand(i);hand.add(handModels.createHandModel(hand,'mesh'));world.add(hand);
+  const grip=renderer.xr.getControllerGrip(i);grip.add(controllerModels.createControllerModel(grip));world.add(grip);
+ }
+}).catch(e=>console.warn('Hand and controller models could not load',e));
 
 // ---------------------------------------------------------------------------
 // Edit mode (open with ?edit): shows yaw/pitch under the cursor for the
@@ -229,14 +240,14 @@ editBox.hidden=!editMode;
 const loaderVR=document.querySelector('#loader-vr');
 let session=null;async function checkVR(){try{if(navigator.xr&&await navigator.xr.isSessionSupported('immersive-vr')){vr.disabled=false;vr.textContent='Enter VR';loaderVR.hidden=false;if(granted)enterVR()}else{vr.textContent='VR: open on Quest';vr.disabled=true}}catch{vr.textContent='VR unavailable'}}
 window.enterVR=enterVR;vr.onclick=loaderVR.onclick=enterVR;
-async function enterVR(){try{if(session){await session.end();return}session=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor']});renderer.xr.setReferenceSpaceType('local');await renderer.xr.setSession(session);document.querySelector('#top').hidden=true;document.querySelector('#logo').hidden=true;document.querySelector('#hint').hidden=true;session.addEventListener('end',()=>{session=null;document.querySelector('#top').hidden=false;document.querySelector('#logo').hidden=false;vr.textContent='Enter VR'})}catch(e){session=null;status.hidden=false;status.textContent='VR could not start. Try Enter VR again.'}};
+async function enterVR(){try{if(session){await session.end();return}session=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor','hand-tracking']});renderer.xr.setReferenceSpaceType('local');await renderer.xr.setSession(session);document.querySelector('#top').hidden=true;document.querySelector('#logo').hidden=true;document.querySelector('#hint').hidden=true;session.addEventListener('end',()=>{session=null;document.querySelector('#top').hidden=false;document.querySelector('#logo').hidden=false;vr.textContent='Enter VR'})}catch(e){session=null;status.hidden=false;status.textContent='VR could not start. Try Enter VR again.'}};
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 let time=performance.now();
 renderer.setAnimationLoop(()=>{
  const now=performance.now(),dt=Math.min((now-time)/1000,.1);time=now;
  if(!renderer.xr.isPresenting){camera.rotation.set(-pitch,yaw,0,'YXZ');ray.setFromCamera(pointer,camera);hover=hit();if(!drag)showSpot();renderer.domElement.style.cursor=hover?'pointer':drag?'grabbing':editMode?'crosshair':'grab'}
  else{hover=null;for(const c of controllers){ray.setFromXRController(c);const h=hit();if(h)hover=h}}
- animateLabels(dt);brand.visible=renderer.xr.isPresenting&&!loading;vrLoader.visible=renderer.xr.isPresenting&&loading;
+ animateLabels(dt);brand.visible=renderer.xr.isPresenting&&!loading;vrLoader.visible=renderer.xr.isPresenting&&loading;if(vrLoader.visible)vrShine.position.x=reducedMotion.matches?-1:(now/1400%1)*1.3-.15;
  const view=renderer.xr.isPresenting?renderer.xr.getCamera():camera;sphere.position.copy(view.position);incoming.position.copy(view.position);eyeLight.position.copy(view.position);
  updateTransition(dt);renderer.render(world,camera);
 });
