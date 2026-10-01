@@ -13,8 +13,20 @@
       "cameraHeight": 1.6,
       "roomSize": 7,
       "labels": [
-        { "to": "gym",    "yaw": -165, "pitch": -4, "distance": 5 },
-        { "to": "events", "yaw": 172,  "pitch": -4, "distance": 5 }
+        { "to": "bedroom", "yaw": -165, "pitch": -4, "distance": 5 },
+        { "to": "events",  "yaw": 172,  "pitch": -6, "distance": 5 },
+        { "to": "gym",     "yaw": 172,  "pitch": 2,  "distance": 5 }
+      ]
+    },
+    {
+      "id": "bedroom",
+      "name": "Bedroom",
+      "image": "spaces/bedroom.jpg",
+      "heading": 0,
+      "cameraHeight": 1.6,
+      "roomSize": 5,
+      "labels": [
+        { "to": "living", "yaw": 180, "pitch": -4, "distance": 3.5 }
       ]
     },
     {
@@ -25,22 +37,8 @@
       "cameraHeight": 1.6,
       "roomSize": 15,
       "labels": [
-        { "to": "events-2", "yaw": 0,    "pitch": -8, "distance": 3 },
-        { "to": "living",   "yaw": -105, "pitch": -4, "distance": 7 },
-        { "to": "gym",      "yaw": 175,  "pitch": -4, "distance": 8 }
-      ]
-    },
-    {
-      "id": "events-2",
-      "name": "Events Hall 2",
-      "image": "spaces/events-hall-2.jpg",
-      "heading": 0,
-      "cameraHeight": 1.6,
-      "roomSize": 15,
-      "labels": [
-        { "to": "events", "text": "Events Hall 1", "yaw": 0, "pitch": -8, "distance": 3 },
-        { "to": "living",   "yaw": -105, "pitch": -4, "distance": 7 },
-        { "to": "gym",      "yaw": 175,  "pitch": -4, "distance": 8 }
+        { "to": "living", "yaw": -105, "pitch": -4, "distance": 7 },
+        { "to": "gym",    "yaw": 175,  "pitch": -4, "distance": 8 }
       ]
     },
     {

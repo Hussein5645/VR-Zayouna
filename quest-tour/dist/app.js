@@ -16,7 +16,7 @@ const heading=i=>rad(spaces[i].heading||0);
 document.title=tour.title||document.title;
 for(const s of spaces)for(const l of s.labels||[])if(l.to!==undefined&&!indexOf.has(l.to))console.warn(`tour.json: space "${s.id}" has a label pointing to unknown space "${l.to}"`);
 
-const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.xr.enabled=true;renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.prepend(renderer.domElement);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.xr.enabled=true;renderer.xr.setFramebufferScaleFactor(1.4);/* render VR a bit above the default resolution so panoramas look sharp */renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.prepend(renderer.domElement);
 const world=new THREE.Scene(),camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.05,100);camera.position.set(0,0,0);world.background=new THREE.Color(0x0d1113);
 // Human scale: y=0 is the real floor. Each panorama is wrapped on a "grounded" sphere centred at the
 // space's cameraHeight, whose bottom is flattened into a floor and whose walls sit roomSize metres away.
@@ -54,7 +54,9 @@ let current=-1,busy=false,yaw=0,pitch=0,drag=false,moved=false,last={x:0,y:0},ho
 const loader=new THREE.TextureLoader(),cache=new Map(),fraction=new Array(spaces.length).fill(0);let hdrQueue=Promise.resolve();
 // fraction[i] goes 0 -> 1 per space (download ~85%, decode ~15%) and drives the loading bar.
 function progress(i,f,text){fraction[i]=Math.max(fraction[i],f);updateLoader();if(waitingFor!==i)return;status.hidden=false;status.textContent=`Loading ${spaces[i].name}… ${text}`}
-function prepare(t){t.colorSpace=THREE.SRGBColorSpace;t.generateMipmaps=false;t.minFilter=t.magFilter=THREE.LinearFilter;return t}
+// Mipmaps + anisotropic filtering: an 8K panorama is always shown smaller than its pixels, so without
+// them it looks grainy and shimmers (marble, chandeliers, text) — especially on the headset.
+function prepare(t){t.colorSpace=THREE.SRGBColorSpace;t.generateMipmaps=true;t.minFilter=THREE.LinearMipmapLinearFilter;t.magFilter=THREE.LinearFilter;t.anisotropy=renderer.capabilities.getMaxAnisotropy();return t}
 function loadHDR(i){
  // One decode at a time keeps memory reasonable on Quest.
  const job=hdrQueue.then(()=>new Promise((resolve,reject)=>{
@@ -193,6 +195,12 @@ const incomingMaterial=new THREE.ShaderMaterial({
    // Same mapping as the panorama mesh: image centre straight ahead (-Z), turning right moves right in the image.
    return vec2(.5+atan(ray.x,-ray.z)/6.28318530718,acos(clamp(-ray.y,-1.0,1.0))/3.14159265359);
  }
+ // Mipmapped lookup whose gradient ignores the jump where the image wraps around, so no seam line appears.
+ vec4 panoSample(sampler2D image,vec2 uv){
+   vec2 dx=dFdx(uv),dy=dFdy(uv);
+   dx.x-=floor(dx.x+.5);dy.x-=floor(dy.x+.5);
+   return texture2DGradEXT(image,uv,dx,dy);
+ }
  void main(){
    vec3 ray=normalize(panoDirection);
    float move=progress*progress*(3.0-2.0*progress);
@@ -200,7 +208,7 @@ const incomingMaterial=new THREE.ShaderMaterial({
    vec2 fromUV=panoramaUV(ray+travelDirection*travelStrength*move,fromHeading);
    vec2 toUV=panoramaUV(ray-travelDirection*travelStrength*.35*(1.0-move),toHeading);
    float blend=smoothstep(.15,.90,progress);
-   gl_FragColor=mix(texture2D(fromImage,fromUV),texture2D(toImage,toUV),blend);
+   gl_FragColor=mix(panoSample(fromImage,fromUV),panoSample(toImage,toUV),blend);
    #include <tonemapping_fragment>
    #include <colorspace_fragment>
  }`
