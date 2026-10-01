@@ -1,9 +1,13 @@
-QUIET 360 - QUEST PANORAMA TOUR
+SJ PARTNERS 360 - QUEST PANORAMA TOUR
 
 Files:
-  dist/index.html: interface and styling
-  dist/app.js: panorama viewer, destinations, transitions and WebXR
-  dist/assets/: bundled Three.js 0.180.0 and sample panoramas
+  dist/tour.json      <- EDIT THIS: spaces, images, label positions, logo
+  dist/spaces/        <- put your 360 images here (.hdr, .jpg, .png can be mixed)
+  dist/assets/logo.png  logo shown at the bottom (browser + VR)
+  dist/index.html     interface and styling
+  dist/app.js         viewer, 3D labels, transitions and WebXR
+  dist/hdr-worker.js  decodes .hdr files in the background
+  dist/assets/        bundled Three.js 0.180.0
 
 Run locally:
   cd dist
@@ -17,13 +21,49 @@ Quest 3:
   Point a controller at a destination and press the trigger.
   HTTPS is required for immersive WebXR on the headset.
 
-Customize:
-  Edit the scenes array in dist/app.js and replace images in dist/assets.
-  Use full 2:1 equirectangular panoramas.
-  Change YOUR LOGO in index.html and app.js.
 
-Includes the Street View-style transition and overlapping-surface flicker fix.
-Sample photos: https://pannellum.org/images/alma.jpg
-              https://pannellum.org/images/cerro-toco-0.jpg
-              https://pannellum.org/images/tocopilla.jpg
+EDITING THE TOUR (dist/tour.json)
+---------------------------------
+Each space looks like this:
+
+  {
+    "id": "entrance",                        short name used by labels (no spaces)
+    "name": "Entrance Hall",                 shown at the top and on labels
+    "image": "spaces/entrance_hall_8k.hdr",  .hdr, .jpg or .png (2:1 equirectangular)
+    "exposure": 1,                           .hdr only: brighter > 1, darker < 1
+    "heading": 0,                            degrees; which way you face on arrival
+    "labels": [
+      { "to": "events", "yaw": -35, "pitch": -6, "distance": 4 }
+    ]
+  }
+
+Labels (each space has its own list; link to as few or as many spaces as you like):
+  to        id of the space to go to. Leave it out for an information-only label.
+  text      optional; defaults to the target space's name
+  yaw       left/right in degrees: 0 = image centre, -90 = left, 90 = right, 180 = behind
+  pitch     up/down in degrees: 0 = eye level, negative = lower
+  distance  metres from the viewer (2 = close, 8 = far). This is the 3D depth in VR.
+  scale     optional size multiplier, default 1
+
+Add a space: copy the image into dist/spaces, add a new { ... } block to "spaces",
+then add labels in other spaces that point to its id.
+Remove a space: delete its block and any labels that point to it.
+"start" in tour.json is the id of the first space.
+
+Finding yaw/pitch quickly:
+  Open http://localhost:8000/?edit
+  Move the mouse: the box at the top shows yaw/pitch under the cursor.
+  Click an empty spot: a ready label line is copied to the clipboard; paste it
+  into that space's "labels" list and fill in "to". Refresh to see it.
+  Add &space=<id> to jump straight to a space, e.g. /?edit&space=night
+
+Logo: replace dist/assets/logo.png. "style": "white" turns a dark logo white so it
+reads over the panorama; use "original" for a logo that already has its own colours.
+
+Image tips:
+  .hdr files are tone mapped in the browser. Files wider than "hdrMaxWidth" (8192)
+  are scaled down while loading, so 16k files work but download slowly (~375 MB).
+  For the Quest, 8k .hdr or 8k .jpg is the best balance; a .jpg is ~10x smaller.
+  Only the current space and the spaces it links to are kept in memory.
+
 Three.js: https://threejs.org/ (MIT license; preserve license notices).
