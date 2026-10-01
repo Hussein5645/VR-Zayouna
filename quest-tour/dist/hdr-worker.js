@@ -17,20 +17,25 @@ self.onmessage = async e => {
 async function download(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
-  const total = +res.headers.get('content-length') || 0;
-  if (!total || !res.body) return new Uint8Array(await res.arrayBuffer());
-  // Write straight into one buffer so huge files are not held twice in memory.
-  const bytes = new Uint8Array(total), reader = res.body.getReader();
-  let offset = 0, lastSent = 0;
+  // Compressed responses report the compressed size, so only trust it when not encoded.
+  const total = res.headers.get('content-encoding') ? 0 : +res.headers.get('content-length') || 0;
+  if (!res.body) return new Uint8Array(await res.arrayBuffer());
+  const reader = res.body.getReader(), chunks = [];
+  // With a known size, write straight into one buffer so huge files are not held twice in memory.
+  let bytes = total ? new Uint8Array(total) : null, offset = 0, lastSent = -1;
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
-    bytes.set(value, offset);
+    if (bytes && offset + value.length <= bytes.length) bytes.set(value, offset); else chunks.push(value);
     offset += value.length;
-    const pct = Math.floor(offset / total * 100);
-    if (pct !== lastSent) { lastSent = pct; self.postMessage({ type: 'progress', phase: 'downloading', pct }); }
+    const step = total ? Math.floor(offset / total * 100) : offset >> 21; // every 1% or every 2 MB
+    if (step !== lastSent) { lastSent = step; self.postMessage({ type: 'progress', phase: 'downloading', pct: total ? step : -1, loaded: offset }); }
   }
-  return bytes;
+  if (bytes && !chunks.length) return bytes;
+  const all = new Uint8Array(offset); let o = 0;
+  if (bytes) { all.set(bytes.subarray(0, Math.min(bytes.length, offset))); o = Math.min(bytes.length, offset); }
+  for (const c of chunks) { all.set(c, o); o += c.length; }
+  return all;
 }
 
 function decode(bytes, maxWidth, exposure = 1) {

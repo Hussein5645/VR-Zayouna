@@ -64,6 +64,10 @@ Image tips:
   .hdr files are tone mapped in the browser. Files wider than "hdrMaxWidth" (8192)
   are scaled down while loading, so 16k files work but download slowly (~375 MB).
   For the Quest, 8k .hdr or 8k .jpg is the best balance; a .jpg is ~10x smaller.
-  Only the current space and the spaces it links to are kept in memory.
+  On first load every space is downloaded and prepared behind the loading bar,
+  so moving between spaces is instant. Each 8k space uses ~130 MB of GPU memory
+  on the headset; if a tour with many spaces gets slow on Quest, lower
+  "hdrMaxWidth" to 4096 or use smaller .jpg files.
+  Label text is shown in capitals automatically.
 
 Three.js: https://threejs.org/ (MIT license; preserve license notices).
