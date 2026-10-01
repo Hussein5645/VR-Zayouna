@@ -24,8 +24,9 @@ const world=new THREE.Scene(),camera=new THREE.PerspectiveCamera(75,innerWidth/i
 // The room is a box-like shape: a flat floor at your feet, a flat ceiling at ceilingHeight and walls at roomSize.
 // tour.roomScale shrinks or grows every room at once (walls and ceilings; the floor always stays at your feet).
 const eyeHeight=i=>spaces[i]?.cameraHeight??1.6;
-const ceilingAbove=i=>Math.max((spaces[i]?.ceilingHeight??2.8)*(tour.roomScale??1)-eyeHeight(i),.5);// metres from eye to ceiling
-const roomSize=i=>Math.max((spaces[i]?.roomSize??5)*(tour.roomScale??1),eyeHeight(i)*1.6,ceilingAbove(i)*1.6);
+// metres from eye to ceiling; "ceilingHeight": 0 means outdoors (open sky, nothing flattened above you)
+const ceilingAbove=i=>spaces[i]?.ceilingHeight===0?Infinity:Math.max((spaces[i]?.ceilingHeight??2.8)*(tour.roomScale??1)-eyeHeight(i),.5);
+const roomSize=i=>{const c=ceilingAbove(i);return Math.max((spaces[i]?.roomSize??5)*(tour.roomScale??1),eyeHeight(i)*1.6,isFinite(c)?c*1.6:0)};
 const shapes=new Map();
 // Presses the part of the sphere beyond `limit` (below the floor or above the ceiling) flat onto that plane, with a smooth bend.
 // BEND 1.25 gives a wide flat floor and a fairly crisp floor/wall corner (three.js GroundedSkybox uses 1.5; must stay <= 1.5).

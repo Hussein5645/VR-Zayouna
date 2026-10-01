@@ -39,7 +39,8 @@ Each space looks like this:
     "exposure": 1,                           .hdr only: brighter > 1, darker < 1
     "heading": 0,                            image yaw you face on arrival (0 = image centre)
     "cameraHeight": 1.6,                     metres; lens height when the photo was taken
-    "ceilingHeight": 2.8,                    metres from floor to ceiling (default 2.8)
+    "ceilingHeight": 2.8,                    metres from floor to ceiling (default 2.8);
+                                             0 = outdoors, open sky
     "roomSize": 4.5,                         metres; rough distance to the walls
                                              (bedroom 3-4, living 4-5, hall 8-10)
     "labels": [
