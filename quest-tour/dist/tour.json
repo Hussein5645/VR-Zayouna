@@ -22,14 +22,13 @@
     {
       "id": "events",
       "name": "Events Hall",
-      "image": "spaces/events_hall_interior_8k.hdr",
-      "exposure": 1,
-      "heading": 90,
+      "image": "spaces/events-hall.jpg",
+      "heading": 0,
       "cameraHeight": 1.6,
-      "roomSize": 12,
+      "roomSize": 15,
       "labels": [
-        { "to": "entrance", "yaw": -90, "pitch": -5, "distance": 5 },
-        { "to": "night", "text": "Step outside", "yaw": 60, "pitch": -3, "distance": 8 }
+        { "to": "entrance", "yaw": -105, "pitch": -4, "distance": 7 },
+        { "to": "night", "text": "Step outside", "yaw": 90, "pitch": -3, "distance": 9 }
       ]
     },
     {
