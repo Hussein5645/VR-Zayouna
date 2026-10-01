@@ -3,6 +3,8 @@ import * as THREE from './assets/three.module.js';
 // ---------------------------------------------------------------------------
 // Tour content lives in tour.json (spaces, images, label positions, logo).
 // ---------------------------------------------------------------------------
+// Quest Browser grants a VR session when arriving from another VR page; remember it so we can enter without a click.
+let granted=false;navigator.xr?.addEventListener('sessiongranted',()=>{granted=true;window.enterVR?.()});
 const status=document.querySelector('#status'),place=document.querySelector('#place'),vr=document.querySelector('#vr'),editBox=document.querySelector('#edit');
 let tour;
 try{tour=await (await fetch('./tour.json',{cache:'no-store'})).json()}
@@ -15,8 +17,9 @@ document.title=tour.title||document.title;
 for(const s of spaces)for(const l of s.labels||[])if(l.to!==undefined&&!indexOf.has(l.to))console.warn(`tour.json: space "${s.id}" has a label pointing to unknown space "${l.to}"`);
 
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.xr.enabled=true;renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.prepend(renderer.domElement);
-const world=new THREE.Scene(),camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.05,100);camera.position.set(0,0,0);
-const material=new THREE.MeshBasicMaterial({color:0xffffff,side:THREE.BackSide});const sphere=new THREE.Mesh(new THREE.SphereGeometry(40,64,40),material);world.add(sphere);
+const world=new THREE.Scene(),camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.05,100);camera.position.set(0,0,0);world.background=new THREE.Color(0x0d1113);
+// The panorama sphere stays hidden until the first space is ready, so VR shows the dark loading room.
+const material=new THREE.MeshBasicMaterial({color:0xffffff,side:THREE.BackSide});const sphere=new THREE.Mesh(new THREE.SphereGeometry(40,64,40),material);sphere.visible=false;world.add(sphere);
 // Labels sit in a group that turns with the panorama, so their yaw is relative to the image.
 const group=new THREE.Group();world.add(group);
 // Lights only affect the 3D labels; the panorama uses an unlit material.
@@ -54,14 +57,27 @@ function texture(i){
 }
 // On first load every space is downloaded, decoded and uploaded to the GPU,
 // so moving between spaces afterwards is instant.
-const loaderBox=document.querySelector('#loader'),loaderBar=document.querySelector('#loader-bar'),loaderText=document.querySelector('#loader-text');let ready=0;
-function updateLoader(){const p=fraction.reduce((a,b)=>a+b,0)/spaces.length;loaderBar.style.transform=`scaleX(${p})`;loaderText.textContent=`Loading spaces ${ready} / ${spaces.length}  ·  ${Math.round(p*100)}%`}
+const loaderBox=document.querySelector('#loader'),loaderBar=document.querySelector('#loader-bar'),loaderText=document.querySelector('#loader-text');let ready=0,loading=true;
+// The same loading screen in VR: logo, thin bar and counter floating in front of you.
+const vrLoader=new THREE.Group();vrLoader.position.set(0,0,-2.4);vrLoader.visible=false;world.add(vrLoader);
+const vrTrack=new THREE.Mesh(new THREE.PlaneGeometry(1,.008),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.15,depthWrite:false}));
+const vrFill=new THREE.Mesh(new THREE.PlaneGeometry(1,.008).translate(.5,0,0),new THREE.MeshBasicMaterial({color:0xffffff}));vrFill.position.set(-.5,0,.001);vrFill.scale.x=.0001;
+const vrTextCanvas=document.createElement('canvas');vrTextCanvas.width=1024;vrTextCanvas.height=64;const vrTextMap=new THREE.CanvasTexture(vrTextCanvas);vrTextMap.colorSpace=THREE.SRGBColorSpace;
+const vrText=new THREE.Mesh(new THREE.PlaneGeometry(1,.0625),new THREE.MeshBasicMaterial({map:vrTextMap,transparent:true,depthWrite:false}));vrText.position.y=-.08;
+vrLoader.add(vrTrack,vrFill,vrText);
+function updateLoader(){
+ const p=fraction.reduce((a,b)=>a+b,0)/spaces.length,text=`Loading spaces ${ready} / ${spaces.length}  ·  ${Math.round(p*100)}%`;
+ loaderBar.style.transform=`scaleX(${p})`;vrFill.scale.x=Math.max(p,.0001);
+ if(loaderText.textContent===text)return;
+ loaderText.textContent=text;
+ const ctx=vrTextCanvas.getContext('2d');ctx.clearRect(0,0,1024,64);ctx.font='500 28px "Segoe UI",system-ui,sans-serif';ctx.letterSpacing='5px';ctx.fillStyle='rgba(255,255,255,.6)';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text.toUpperCase(),512,34);vrTextMap.needsUpdate=true;
+}
 async function preloadAll(first){
  updateLoader();
  const order=[first,...spaces.keys()].filter((i,k,a)=>a.indexOf(i)===k);
  const results=await Promise.allSettled(order.map(i=>texture(i).then(t=>{renderer.initTexture(t);fraction[i]=1;ready++;updateLoader()})));
  results.forEach((r,k)=>{if(r.status==='rejected')console.warn(`Could not preload "${spaces[order[k]].id}"`,r.reason)});
- loaderBox.classList.add('done');setTimeout(()=>loaderBox.hidden=true,600);
+ loading=false;loaderBox.classList.add('done');setTimeout(()=>loaderBox.hidden=true,600);
 }
 
 // ---------------------------------------------------------------------------
@@ -123,8 +139,9 @@ async function loadLogo(){
  const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
  if(logo.style!=='original'){const d=ctx.getImageData(0,0,c.width,c.height),p=d.data;for(let i=0;i<p.length;i+=4){const a=p[i+3]/255*(1-(p[i]+p[i+1]+p[i+2])/765);p[i]=p[i+1]=p[i+2]=255;p[i+3]=a*255}ctx.putImageData(d,0,0)}
  const url=c.toDataURL(),html=document.querySelector('#logo');html.src=url;html.hidden=!!session;document.querySelector('#loader-logo').src=url;
- // In VR the logo rests on a small dark slab below eye level.
  const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=4;
+ const loaderLogo=new THREE.Mesh(new THREE.PlaneGeometry(.6,.6*c.height/c.width),new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false}));loaderLogo.position.y=.16;vrLoader.add(loaderLogo);
+ // In VR the logo rests on a small dark slab below eye level.
  const w=.7,h=w*c.height/c.width,padX=.1,padY=.07;
  const slab=new THREE.Mesh(new THREE.ExtrudeGeometry(pillShape(w+padX*2,h+padY*2),{depth:SLAB_DEPTH,bevelEnabled:true,bevelThickness:BEVEL,bevelSize:BEVEL,bevelSegments:3,curveSegments:24}),new THREE.MeshStandardMaterial({color:0x0e1214,roughness:.55,metalness:0,transparent:true,opacity:.8}));
  const face=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false}));face.position.z=FRONT;
@@ -184,7 +201,7 @@ async function go(i,direction=new THREE.Vector3(0,0,-1)){
   renderer.initTexture(t);
   status.hidden=true;
   if(material.map)await blendTo(t,direction,i);
-  else{material.map=t;material.needsUpdate=true;sphere.rotation.y=heading(i);show(i)}
+  else{material.map=t;material.needsUpdate=true;sphere.rotation.y=heading(i);sphere.visible=true;show(i)}
  }catch(e){console.error(e);status.hidden=false;status.replaceChildren(document.createTextNode(`${spaces[i].name} could not load. `));const b=document.createElement('button');b.textContent='Retry';b.onclick=()=>go(i,direction);status.append(b)}
  finally{busy=false;waitingFor=-1}
 }
@@ -207,20 +224,25 @@ function showSpot(){if(!editMode||current<0)return;const s=spotUnderPointer();ed
 function copySpot(){const s=spotUnderPointer(),line=`{ "to": "", "yaw": ${s.yaw}, "pitch": ${s.pitch}, "distance": 4 },`;navigator.clipboard?.writeText(line).catch(()=>{});editBox.textContent='Copied: '+line;console.log(`[${spaces[current].id}]`,line)}
 editBox.hidden=!editMode;
 
-let session=null;async function checkVR(){try{if(navigator.xr&&await navigator.xr.isSessionSupported('immersive-vr')){vr.disabled=false;vr.textContent='Enter VR'}else{vr.textContent='VR: open on Quest';vr.disabled=true}}catch{vr.textContent='VR unavailable'}}vr.onclick=async()=>{try{if(session){await session.end();return}session=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor']});renderer.xr.setReferenceSpaceType('local');await renderer.xr.setSession(session);document.querySelector('#top').hidden=true;document.querySelector('#logo').hidden=true;document.querySelector('#hint').hidden=true;session.addEventListener('end',()=>{session=null;document.querySelector('#top').hidden=false;document.querySelector('#logo').hidden=false;vr.textContent='Enter VR'})}catch(e){session=null;status.hidden=false;status.textContent='VR could not start. Try Enter VR again.'}};
+// VR is the default: on a headset the loading screen offers Enter VR right away, and loading
+// carries on inside VR. Browsers only allow entering VR after a click (or a granted session).
+const loaderVR=document.querySelector('#loader-vr');
+let session=null;async function checkVR(){try{if(navigator.xr&&await navigator.xr.isSessionSupported('immersive-vr')){vr.disabled=false;vr.textContent='Enter VR';loaderVR.hidden=false;if(granted)enterVR()}else{vr.textContent='VR: open on Quest';vr.disabled=true}}catch{vr.textContent='VR unavailable'}}
+window.enterVR=enterVR;vr.onclick=loaderVR.onclick=enterVR;
+async function enterVR(){try{if(session){await session.end();return}session=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor']});renderer.xr.setReferenceSpaceType('local');await renderer.xr.setSession(session);document.querySelector('#top').hidden=true;document.querySelector('#logo').hidden=true;document.querySelector('#hint').hidden=true;session.addEventListener('end',()=>{session=null;document.querySelector('#top').hidden=false;document.querySelector('#logo').hidden=false;vr.textContent='Enter VR'})}catch(e){session=null;status.hidden=false;status.textContent='VR could not start. Try Enter VR again.'}};
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 let time=performance.now();
 renderer.setAnimationLoop(()=>{
  const now=performance.now(),dt=Math.min((now-time)/1000,.1);time=now;
  if(!renderer.xr.isPresenting){camera.rotation.set(-pitch,yaw,0,'YXZ');ray.setFromCamera(pointer,camera);hover=hit();if(!drag)showSpot();renderer.domElement.style.cursor=hover?'pointer':drag?'grabbing':editMode?'crosshair':'grab'}
  else{hover=null;for(const c of controllers){ray.setFromXRController(c);const h=hit();if(h)hover=h}}
- animateLabels(dt);brand.visible=renderer.xr.isPresenting;
+ animateLabels(dt);brand.visible=renderer.xr.isPresenting&&!loading;vrLoader.visible=renderer.xr.isPresenting&&loading;
  const view=renderer.xr.isPresenting?renderer.xr.getCamera():camera;sphere.position.copy(view.position);incoming.position.copy(view.position);eyeLight.position.copy(view.position);
  updateTransition(dt);renderer.render(world,camera);
 });
 loadLogo().catch(e=>console.warn('Logo could not load',e));
 const first=indexOf.get(params.get('space'))??indexOf.get(tour.start)??0;
-status.hidden=true;vr.textContent='Loading…';
+status.hidden=true;checkVR();
 await preloadAll(first);
-await go(first);checkVR();
+await go(first);
 setTimeout(()=>document.querySelector('#hint').style.opacity='0',6500);

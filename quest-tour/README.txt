@@ -17,7 +17,10 @@ Run locally:
 
 Quest 3:
   Host the contents of dist on an HTTPS static hosting service.
-  Open the HTTPS URL in Quest Browser and select Enter VR.
+  Open the HTTPS URL in Quest Browser and select the big Enter VR button on the
+  loading screen. You don't need to wait: loading continues inside VR with the
+  same logo and progress bar. (Browsers only allow VR to start after a click;
+  arriving from another VR page on Quest enters VR automatically.)
   Point a controller at a destination and press the trigger.
   HTTPS is required for immersive WebXR on the headset.
 
