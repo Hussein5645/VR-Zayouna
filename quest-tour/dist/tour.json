@@ -25,8 +25,22 @@
       "cameraHeight": 1.6,
       "roomSize": 15,
       "labels": [
-        { "to": "living", "yaw": -105, "pitch": -4, "distance": 7 },
-        { "to": "gym",    "yaw": 175,  "pitch": -4, "distance": 8 }
+        { "to": "events-2", "yaw": 0,    "pitch": -8, "distance": 3 },
+        { "to": "living",   "yaw": -105, "pitch": -4, "distance": 7 },
+        { "to": "gym",      "yaw": 175,  "pitch": -4, "distance": 8 }
+      ]
+    },
+    {
+      "id": "events-2",
+      "name": "Events Hall 2",
+      "image": "spaces/events-hall-2.jpg",
+      "heading": 0,
+      "cameraHeight": 1.6,
+      "roomSize": 15,
+      "labels": [
+        { "to": "events", "text": "Events Hall 1", "yaw": 0, "pitch": -8, "distance": 3 },
+        { "to": "living",   "yaw": -105, "pitch": -4, "distance": 7 },
+        { "to": "gym",      "yaw": 175,  "pitch": -4, "distance": 8 }
       ]
     },
     {
