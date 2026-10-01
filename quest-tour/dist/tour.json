@@ -11,13 +11,13 @@
       "name": "Living & Dining",
       "image": "spaces/living-dining.jpg",
       "heading": 0,
-      "cameraHeight": 1.75,
+      "cameraHeight": 1.6,
       "ceilingHeight": 2.8,
       "roomSize": 4.5,
       "labels": [
-        { "to": "bedroom", "yaw": -165, "pitch": -4, "distance": 3.8 },
-        { "to": "events",  "yaw": 172,  "pitch": -6, "distance": 3.8 },
-        { "to": "gym",     "yaw": 172,  "pitch": 2,  "distance": 3.8 }
+        { "to": "bedroom", "yaw": -157, "pitch": -5, "distance": 3 },
+        { "to": "events",  "yaw": 176,  "pitch": -9, "distance": 3 },
+        { "to": "gym",     "yaw": 176,  "pitch": -1, "distance": 3, "ring": false }
       ]
     },
     {
@@ -25,11 +25,11 @@
       "name": "Bedroom",
       "image": "spaces/bedroom.jpg",
       "heading": 0,
-      "cameraHeight": 1.75,
-      "ceilingHeight": 2.8,
-      "roomSize": 3.5,
+      "cameraHeight": 1.6,
+      "ceilingHeight": 2.65,
+      "roomSize": 3.2,
       "labels": [
-        { "to": "living", "yaw": 180, "pitch": -4, "distance": 3 }
+        { "to": "living", "yaw": 180, "pitch": -7, "distance": 1.9 }
       ]
     },
     {
@@ -37,12 +37,12 @@
       "name": "Events Hall",
       "image": "spaces/events-hall.jpg",
       "heading": 0,
-      "cameraHeight": 1.75,
-      "ceilingHeight": 4.5,
-      "roomSize": 9,
+      "cameraHeight": 1.6,
+      "ceilingHeight": 4.1,
+      "roomSize": 8,
       "labels": [
-        { "to": "living", "yaw": -105, "pitch": -4, "distance": 7 },
-        { "to": "gym",    "yaw": 175,  "pitch": -4, "distance": 8 }
+        { "to": "living", "yaw": -85, "pitch": -3, "distance": 5.5 },
+        { "to": "gym",    "yaw": -7,  "pitch": -3, "distance": 5.8 }
       ]
     },
     {
@@ -50,12 +50,12 @@
       "name": "Gym",
       "image": "spaces/gym-3.jpg",
       "heading": 0,
-      "cameraHeight": 1.75,
+      "cameraHeight": 1.6,
       "ceilingHeight": 3.2,
       "roomSize": 6,
       "labels": [
-        { "to": "events", "yaw": 10,  "pitch": -4, "distance": 5.4 },
-        { "to": "living", "yaw": 180, "pitch": -4, "distance": 3.5 }
+        { "to": "events", "yaw": 15,   "pitch": -3, "distance": 4.3 },
+        { "to": "living", "yaw": -177, "pitch": -3, "distance": 4.3 }
       ]
     }
   ]

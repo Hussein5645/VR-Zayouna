@@ -55,6 +55,8 @@ Labels (each space has its own list; link to as few or as many spaces as you lik
   distance  metres from the viewer. Use the real distance to the doorway; labels are
             kept inside the room automatically (in front of walls, above the floor).
   scale     optional size multiplier, default 1
+  ring      false hides the floor ring under the label (e.g. for a second label
+            stacked on the same doorway)
 
 Add a space: copy the image into dist/spaces, add a new { ... } block to "spaces",
 then add labels in other spaces that point to its id.

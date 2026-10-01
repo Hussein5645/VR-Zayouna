@@ -28,7 +28,11 @@ const ceilingAbove=i=>Math.max((spaces[i]?.ceilingHeight??2.8)*(tour.roomScale??
 const roomSize=i=>Math.max((spaces[i]?.roomSize??5)*(tour.roomScale??1),eyeHeight(i)*1.6,ceilingAbove(i)*1.6);
 const shapes=new Map();
 // Presses the part of the sphere beyond `limit` (below the floor or above the ceiling) flat onto that plane, with a smooth bend.
-const flatten=(y,limit)=>{const y1=limit*1.5;return Math.abs(y)>Math.abs(y1)?limit/y:1-y*y/(3*y1*y1)};
+// BEND 1.25 gives a wide flat floor and a fairly crisp floor/wall corner (three.js GroundedSkybox uses 1.5; must stay <= 1.5).
+const BEND=1.25;
+const flatten=(y,limit)=>{const y1=limit*BEND;return Math.abs(y)>Math.abs(y1)?limit/y:1-(1-1/BEND)*y*y/(y1*y1)};
+// Horizontal reach of the flat part of the floor, so floor markers are only drawn where the floor really is flat.
+const flatFloor=i=>{const R=roomSize(i),y1=eyeHeight(i)*BEND;return Math.sqrt(Math.max(R*R-y1*y1,0))/BEND};
 function groundedGeometry(h,R,c){
  const key=h+'/'+R+'/'+c;
  if(!shapes.has(key)){
@@ -119,7 +123,8 @@ async function preloadAll(first){
 function pillShape(w,h){const r=h/2,s=new THREE.Shape();s.moveTo(-w/2+r,-h/2);s.lineTo(w/2-r,-h/2);s.absarc(w/2-r,0,r,-Math.PI/2,Math.PI/2);s.lineTo(-w/2+r,h/2);s.absarc(-w/2+r,0,r,Math.PI/2,Math.PI*1.5);return s}
 function glowTexture(inner,outer){const c=document.createElement('canvas');c.width=c.height=128;const ctx=c.getContext('2d'),g=ctx.createRadialGradient(64,64,0,64,64,64);g.addColorStop(0,inner);g.addColorStop(1,outer);ctx.fillStyle=g;ctx.fillRect(0,0,128,128);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.userData.shared=true;return t}
 const shadowMap=glowTexture('rgba(0,0,0,.8)','rgba(0,0,0,0)');
-const SLAB_DEPTH=.01,BEVEL=.005,FRONT=SLAB_DEPTH+BEVEL+.002,EDGE=.007;
+const SLAB_DEPTH=.035,BEVEL=.012,FRONT=SLAB_DEPTH+BEVEL+.002,EDGE=.007;
+const FLAT=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-Math.PI/2),tmpQ=new THREE.Quaternion();
 let labelFade=1;
 
 function labelFace(text,icon){
@@ -145,20 +150,36 @@ function makeLabel(spec){
  add(new THREE.ExtrudeGeometry(pillShape(w,h),{depth:SLAB_DEPTH,bevelEnabled:true,bevelThickness:BEVEL,bevelSize:BEVEL,bevelSegments:3,curveSegments:24}),new THREE.MeshStandardMaterial({color:0x0e1214,roughness:.55,metalness:0,transparent:true,opacity:.8}),0);
  add(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:face.map,transparent:true,depthWrite:false}),FRONT);
  root.position.set(Math.sin(y)*Math.cos(p)*distance,Math.sin(p)*distance,-Math.cos(y)*Math.cos(p)*distance);
- root.userData={target:clickable?target:undefined,edge,hot:0};
+ // A thin ring on the floor right under the label anchors it in the room (only where the floor is really flat).
+ let ring=null,ringGroup=null;
+ if(spec.ring!==false&&Math.hypot(root.position.x,root.position.z)<flatFloor(current)*.95){
+  ringGroup=new THREE.Group();
+  ring=add(new THREE.RingGeometry(.15,.18,48),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.5,depthWrite:false,side:THREE.DoubleSide}),0);
+  const fill=add(new THREE.CircleGeometry(.15,48),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.08,depthWrite:false,side:THREE.DoubleSide}),0);
+  ringGroup.add(ring,fill);root.add(ringGroup);
+ }
+ root.userData={target:clickable?target:undefined,edge,hot:0,ring,ringGroup};
  return root;
+}
+// After the label turns to face you, lay its ring flat on the floor directly beneath it.
+function placeRing(root){
+ const rg=root.userData.ringGroup;if(!rg)return;
+ const floor=new THREE.Vector3(root.position.x,-eyeHeight(current)+.01,root.position.z);
+ root.updateMatrixWorld();rg.position.copy(root.worldToLocal(group.localToWorld(floor)));
+ rg.quaternion.copy(tmpQ.copy(root.quaternion).invert().multiply(FLAT));
 }
 function clearLabels(){for(const root of [...group.children]){group.remove(root);root.traverse(m=>{if(!m.isMesh)return;m.geometry.dispose();if(m.material.map&&!m.material.map.userData.shared)m.material.map.dispose();m.material.dispose()})}}
 function buildLabels(){
  clearLabels();rig.position.y=eyeHeight(current);group.rotation.y=heading(current);
  const eye=rig.getWorldPosition(new THREE.Vector3());
- for(const spec of spaces[current].labels||[]){if(spec.to!==undefined&&!indexOf.has(spec.to))continue;const root=makeLabel(spec);group.add(root);root.lookAt(eye)}
+ for(const spec of spaces[current].labels||[]){if(spec.to!==undefined&&!indexOf.has(spec.to))continue;const root=makeLabel(spec);group.add(root);root.lookAt(eye);placeRing(root)}
 }
 function animateLabels(dt){
  for(const root of group.children){
   // No movement: the hovered label's edge brightens from a faint line to solid white.
   const u=root.userData;u.hot+=((root===hover?1:0)-u.hot)*Math.min(dt*12,1);
   u.edge.material.userData.opacity=.22+.73*u.hot;
+  if(u.ring)u.ring.material.userData.opacity=.5+.45*u.hot;
   root.traverse(m=>{if(m.isMesh)m.material.opacity=m.material.userData.opacity*labelFade});
  }
 }
@@ -175,12 +196,10 @@ async function loadLogo(){
  if(logo.style!=='original'){const d=ctx.getImageData(0,0,c.width,c.height),p=d.data;for(let i=0;i<p.length;i+=4){const a=p[i+3]/255*(1-(p[i]+p[i+1]+p[i+2])/765);p[i]=p[i+1]=p[i+2]=255;p[i+3]=a*255}ctx.putImageData(d,0,0)}
  const url=c.toDataURL(),html=document.querySelector('#logo');html.src=url;html.hidden=!!session;document.querySelector('#loader-logo').src=url;
  const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=4;
- const loaderLogo=new THREE.Mesh(new THREE.PlaneGeometry(.4,.4*c.height/c.width),new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false}));loaderLogo.position.y=.16;vrLoader.add(loaderLogo);
- // In VR the logo rests on a small dark slab below eye level.
- const w=.4,h=w*c.height/c.width,padX=.07,padY=.05;
- const slab=new THREE.Mesh(new THREE.ExtrudeGeometry(pillShape(w+padX*2,h+padY*2),{depth:SLAB_DEPTH,bevelEnabled:true,bevelThickness:BEVEL,bevelSize:BEVEL,bevelSegments:3,curveSegments:24}),new THREE.MeshStandardMaterial({color:0x0e1214,roughness:.55,metalness:0,transparent:true,opacity:.8}));
- const face=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false}));face.position.z=FRONT;
- brand.add(slab,face);brand.position.set(0,-1.2,-2.2);brand.lookAt(rig.getWorldPosition(new THREE.Vector3()));
+ const loaderLogo=new THREE.Mesh(new THREE.PlaneGeometry(.3,.3*c.height/c.width),new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false}));loaderLogo.position.y=.14;vrLoader.add(loaderLogo);
+ // In VR the logo is a small, faint watermark low in front of you, just above the floor.
+ const w=.16,face=new THREE.Mesh(new THREE.PlaneGeometry(w,w*c.height/c.width),new THREE.MeshBasicMaterial({map,transparent:true,opacity:.45,depthWrite:false}));
+ brand.add(face);brand.position.set(0,-1.35,-1.5);brand.lookAt(rig.getWorldPosition(new THREE.Vector3()));
 }
 
 // ---------------------------------------------------------------------------
