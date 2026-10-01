@@ -16,7 +16,7 @@
       "labels": [
         { "to": "events",  "yaw": 125, "pitch": -5, "distance": 3.5 },
         { "to": "bedroom", "yaw": 50,  "pitch": -4, "distance": 4.5 },
-        { "to": "gym",     "yaw": -135, "pitch": -4, "distance": 4.5 }
+        { "to": "gym-1",   "yaw": -135, "pitch": -4, "distance": 4.5 }
       ]
     },
     {
@@ -58,13 +58,41 @@
       ]
     },
     {
-      "id": "gym",
-      "name": "Gym",
-      "image": "spaces/gym.webp",
+      "id": "gym-1",
+      "name": "Gym 1",
+      "image": "spaces/gym-1.webp",
       "heading": 0,
       "cameraHeight": 1.6,
       "roomSize": 10,
       "labels": [
+        { "to": "gym-2",    "yaw": 0,   "pitch": -8, "distance": 3 },
+        { "to": "gym-3",    "yaw": 14,  "pitch": -8, "distance": 3 },
+        { "to": "entrance", "yaw": 180, "pitch": -4, "distance": 4 }
+      ]
+    },
+    {
+      "id": "gym-2",
+      "name": "Gym 2",
+      "image": "spaces/gym-2.webp",
+      "heading": 0,
+      "cameraHeight": 1.6,
+      "roomSize": 10,
+      "labels": [
+        { "to": "gym-1",    "yaw": -14, "pitch": -8, "distance": 3 },
+        { "to": "gym-3",    "yaw": 14,  "pitch": -8, "distance": 3 },
+        { "to": "entrance", "yaw": 180, "pitch": -4, "distance": 4 }
+      ]
+    },
+    {
+      "id": "gym-3",
+      "name": "Gym 3",
+      "image": "spaces/gym-3.jpg",
+      "heading": 0,
+      "cameraHeight": 1.6,
+      "roomSize": 10,
+      "labels": [
+        { "to": "gym-1",    "yaw": -14, "pitch": -8, "distance": 3 },
+        { "to": "gym-2",    "yaw": 0,   "pitch": -8, "distance": 3 },
         { "to": "entrance", "yaw": 180, "pitch": -4, "distance": 4 }
       ]
     }
