@@ -38,6 +38,9 @@ Each space looks like this:
     "image": "spaces/entrance_hall_8k.hdr",  .hdr, .jpg or .png (2:1 equirectangular)
     "exposure": 1,                           .hdr only: brighter > 1, darker < 1
     "heading": 0,                            degrees; which way you face on arrival
+    "cameraHeight": 1.6,                     metres; lens height when the photo was taken
+    "roomSize": 5,                           metres; rough distance to the walls
+                                             (small room 4-6, hall 10-15, outdoors 20+)
     "labels": [
       { "to": "events", "yaw": -35, "pitch": -6, "distance": 4 }
     ]
@@ -48,7 +51,8 @@ Labels (each space has its own list; link to as few or as many spaces as you lik
   text      optional; defaults to the target space's name
   yaw       left/right in degrees: 0 = image centre, -90 = left, 90 = right, 180 = behind
   pitch     up/down in degrees: 0 = eye level, negative = lower
-  distance  metres from the viewer (2 = close, 8 = far). This is the 3D depth in VR.
+  distance  metres from the viewer. Use the real distance to the doorway; labels are
+            kept inside the room automatically (in front of walls, above the floor).
   scale     optional size multiplier, default 1
 
 Add a space: copy the image into dist/spaces, add a new { ... } block to "spaces",
@@ -59,12 +63,23 @@ Remove a space: delete its block and any labels that point to it.
 Finding yaw/pitch quickly:
   Open http://localhost:8000/?edit
   Move the mouse: the box at the top shows yaw/pitch under the cursor.
-  Click an empty spot: a ready label line is copied to the clipboard; paste it
+  Best: hover the FLOOR right at the doorway. The box shows "floor 4.2 m", the
+  real distance worked out from cameraHeight, and clicking copies a label at that
+  distance just below eye level.
+  Click any spot: a ready label line is copied to the clipboard; paste it
   into that space's "labels" list and fill in "to". Refresh to see it.
   Add &space=<id> to jump straight to a space, e.g. /?edit&space=night
 
 Logo: replace dist/assets/logo.png. "style": "white" turns a dark logo white so it
 reads over the panorama; use "original" for a logo that already has its own colours.
+
+Human scale:
+  Each panorama gets a real floor at your feet (the bottom of the image is laid
+  flat at cameraHeight below the capture point) and walls at roomSize. In VR the
+  floor matches your real floor and the room stays still when you lean, so it
+  feels life-size. If a floor feels too high or low, adjust cameraHeight; if
+  walls feel too close or far, adjust roomSize.
+  Shooting tips: tripod at ~1.6 m, level, nothing very close to the lens.
 
 Image tips:
   .hdr files are tone mapped in the browser. Files wider than "hdrMaxWidth" (8192)

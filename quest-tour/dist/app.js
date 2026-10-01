@@ -18,10 +18,31 @@ for(const s of spaces)for(const l of s.labels||[])if(l.to!==undefined&&!indexOf.
 
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.xr.enabled=true;renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.prepend(renderer.domElement);
 const world=new THREE.Scene(),camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.05,100);camera.position.set(0,0,0);world.background=new THREE.Color(0x0d1113);
-// The panorama sphere stays hidden until the first space is ready, so VR shows the dark loading room.
-const material=new THREE.MeshBasicMaterial({color:0xffffff,side:THREE.BackSide});const sphere=new THREE.Mesh(new THREE.SphereGeometry(40,64,40),material);sphere.visible=false;world.add(sphere);
+// Human scale: y=0 is the real floor. Each panorama is wrapped on a "grounded" sphere centred at the
+// space's cameraHeight, whose bottom is flattened into a floor and whose walls sit roomSize metres away.
+// It stays fixed in the room (it no longer follows your head), so leaning gives real parallax on the floor.
+const eyeHeight=i=>spaces[i]?.cameraHeight??1.6,roomSize=i=>Math.max(spaces[i]?.roomSize??8,eyeHeight(i)*2);
+const shapes=new Map();
+function groundedGeometry(h,R){
+ const key=h+'/'+R;
+ if(!shapes.has(key)){
+  const g=new THREE.SphereGeometry(R,128,96),pos=g.attributes.position,v=new THREE.Vector3(),y1=-h*1.5;
+  // Same projection as three.js GroundedSkybox: below 1.5×height the sphere is pressed flat onto the floor, with a smooth bend above it.
+  for(let i=0;i<pos.count;i++){v.fromBufferAttribute(pos,i);if(v.y<0){v.multiplyScalar(v.y<y1?-h/v.y:1-v.y*v.y/(3*y1*y1));pos.setXYZ(i,v.x,v.y,v.z)}}
+  shapes.set(key,g);
+ }
+ return shapes.get(key);
+}
+function placeSpace(mesh,i){mesh.geometry=groundedGeometry(eyeHeight(i),roomSize(i));mesh.position.y=eyeHeight(i)}
+// stage holds everything that belongs to the room; it only moves if the headset has no floor-level tracking.
+const stage=new THREE.Group();world.add(stage);
+// The panorama stays hidden until the first space is ready, so VR shows the dark loading room.
+const material=new THREE.MeshBasicMaterial({color:0xffffff,side:THREE.BackSide,depthWrite:false});const sphere=new THREE.Mesh(groundedGeometry(1.6,8),material);sphere.visible=false;stage.add(sphere);
+// rig sits at the capture point (eye height). Labels, the VR logo and the VR loading screen live in it.
+const rig=new THREE.Group();rig.position.y=1.6;stage.add(rig);
 // Labels sit in a group that turns with the panorama, so their yaw is relative to the image.
-const group=new THREE.Group();world.add(group);
+const group=new THREE.Group();rig.add(group);
+let floorLevel=true;
 // Lights only affect the 3D labels; the panorama uses an unlit material.
 world.add(new THREE.HemisphereLight(0xffffff,0x0b1012,1.4));const eyeLight=new THREE.PointLight(0xffffff,.9,0,0);world.add(eyeLight);
 let current=-1,busy=false,yaw=0,pitch=0,drag=false,moved=false,last={x:0,y:0},hover=null,transition=null,waitingFor=-1;
@@ -59,7 +80,7 @@ function texture(i){
 // so moving between spaces afterwards is instant.
 const loaderBox=document.querySelector('#loader'),loaderBar=document.querySelector('#loader-bar'),loaderText=document.querySelector('#loader-text');let ready=0,loading=true;
 // The same loading screen in VR: logo, thin bar and counter floating in front of you.
-const vrLoader=new THREE.Group();vrLoader.position.set(0,0,-2.4);vrLoader.visible=false;world.add(vrLoader);
+const vrLoader=new THREE.Group();vrLoader.position.set(0,0,-2.4);vrLoader.visible=false;rig.add(vrLoader);
 const vrTrack=new THREE.Mesh(new THREE.PlaneGeometry(1,.008),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.15,depthWrite:false}));
 const vrFill=new THREE.Mesh(new THREE.PlaneGeometry(1,.008).translate(.5,0,0),new THREE.MeshBasicMaterial({color:0xcfd5d8}));vrFill.position.set(-.5,0,.001);vrFill.scale.x=.0001;
 // A soft glint that sweeps along the filled part of the bar (it is a child of the fill, so it stays inside it).
@@ -103,7 +124,10 @@ function labelFace(text,icon){
 function makeLabel(spec){
  const target=indexOf.get(spec.to),clickable=target!==undefined;
  const text=(spec.text??(clickable?spaces[target].name:'')).toUpperCase();
- const distance=spec.distance??4,h=.24*Math.pow(distance/4,.6)*(spec.scale??1);// far labels shrink, but stay readable
+ const p=rad(spec.pitch??-6),y=rad(spec.yaw??0),R=roomSize(current);
+ // Keep the label inside the room: in front of the walls and above the floor, so its depth matches the image behind it.
+ const surface=p<0?Math.min(R,eyeHeight(current)/Math.sin(-p)):R;
+ const distance=Math.min(spec.distance??R*.6,surface*.9),h=.24*Math.pow(distance/4,.6)*(spec.scale??1);// far labels shrink, but stay readable
  const face=labelFace(text,clickable),w=h*face.aspect;
  const root=new THREE.Group();
  const add=(geometry,mat,z)=>{const m=new THREE.Mesh(geometry,mat);m.position.z=z;m.renderOrder=2;mat.userData.opacity=mat.opacity;root.add(m);return m};
@@ -111,15 +135,15 @@ function makeLabel(spec){
  const edge=add(new THREE.ShapeGeometry(pillShape(w+EDGE*2+BEVEL*2,h+EDGE*2+BEVEL*2),24),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.22,depthWrite:false}),SLAB_DEPTH/2);
  add(new THREE.ExtrudeGeometry(pillShape(w,h),{depth:SLAB_DEPTH,bevelEnabled:true,bevelThickness:BEVEL,bevelSize:BEVEL,bevelSegments:3,curveSegments:24}),new THREE.MeshStandardMaterial({color:0x0e1214,roughness:.55,metalness:0,transparent:true,opacity:.8}),0);
  add(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:face.map,transparent:true,depthWrite:false}),FRONT);
- const p=rad(spec.pitch??-6),y=rad(spec.yaw??0);
  root.position.set(Math.sin(y)*Math.cos(p)*distance,Math.sin(p)*distance,-Math.cos(y)*Math.cos(p)*distance);
  root.userData={target:clickable?target:undefined,edge,hot:0};
  return root;
 }
 function clearLabels(){for(const root of [...group.children]){group.remove(root);root.traverse(m=>{if(!m.isMesh)return;m.geometry.dispose();if(m.material.map&&!m.material.map.userData.shared)m.material.map.dispose();m.material.dispose()})}}
 function buildLabels(){
- clearLabels();group.rotation.y=heading(current);group.updateMatrixWorld();
- for(const spec of spaces[current].labels||[]){if(spec.to!==undefined&&!indexOf.has(spec.to))continue;const root=makeLabel(spec);group.add(root);root.lookAt(0,0,0)}
+ clearLabels();rig.position.y=eyeHeight(current);group.rotation.y=heading(current);
+ const eye=rig.getWorldPosition(new THREE.Vector3());
+ for(const spec of spaces[current].labels||[]){if(spec.to!==undefined&&!indexOf.has(spec.to))continue;const root=makeLabel(spec);group.add(root);root.lookAt(eye)}
 }
 function animateLabels(dt){
  for(const root of group.children){
@@ -134,7 +158,7 @@ function animateLabels(dt){
 // Logo: tour.logo.style "white" turns a dark logo into white for dark scenes;
 // "original" uses the file as is.
 // ---------------------------------------------------------------------------
-const brand=new THREE.Group();brand.visible=false;world.add(brand);
+const brand=new THREE.Group();brand.visible=false;rig.add(brand);
 async function loadLogo(){
  const logo=tour.logo;if(!logo?.image)return;
  const img=new Image();img.src=logo.image;await img.decode();
@@ -147,7 +171,7 @@ async function loadLogo(){
  const w=.7,h=w*c.height/c.width,padX=.1,padY=.07;
  const slab=new THREE.Mesh(new THREE.ExtrudeGeometry(pillShape(w+padX*2,h+padY*2),{depth:SLAB_DEPTH,bevelEnabled:true,bevelThickness:BEVEL,bevelSize:BEVEL,bevelSegments:3,curveSegments:24}),new THREE.MeshStandardMaterial({color:0x0e1214,roughness:.55,metalness:0,transparent:true,opacity:.8}));
  const face=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false}));face.position.z=FRONT;
- brand.add(slab,face);brand.position.set(0,-1.45,-2.6);brand.lookAt(0,0,0);
+ brand.add(slab,face);brand.position.set(0,-1.2,-2.2);brand.lookAt(rig.getWorldPosition(new THREE.Vector3()));
 }
 
 // ---------------------------------------------------------------------------
@@ -179,10 +203,10 @@ const incomingMaterial=new THREE.ShaderMaterial({
    #include <colorspace_fragment>
  }`
 });
-const incoming=new THREE.Mesh(sphere.geometry,incomingMaterial);incoming.renderOrder=1;incoming.visible=false;world.add(incoming);
+const incoming=new THREE.Mesh(sphere.geometry,incomingMaterial);incoming.renderOrder=1;incoming.visible=false;stage.add(incoming);
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
 const ease=t=>t*t*t*(t*(t*6-15)+10);
-function blendTo(t,direction,target){return new Promise(resolve=>{const u=incomingMaterial.uniforms;u.fromImage.value=material.map;u.toImage.value=t;u.fromHeading.value=heading(current);u.toHeading.value=heading(target);u.progress.value=0;u.travelStrength.value=reducedMotion.matches?0:renderer.xr.isPresenting?.10:.22;u.travelDirection.value.copy(direction);sphere.visible=false;incoming.visible=true;transition={elapsed:0,duration:reducedMotion.matches?.25:.72,resolve,target}})}
+function blendTo(t,direction,target){return new Promise(resolve=>{const u=incomingMaterial.uniforms;u.fromImage.value=material.map;u.toImage.value=t;u.fromHeading.value=heading(current);u.toHeading.value=heading(target);u.progress.value=0;u.travelStrength.value=reducedMotion.matches?0:renderer.xr.isPresenting?.10:.22;u.travelDirection.value.copy(direction);placeSpace(incoming,target);sphere.visible=false;incoming.visible=true;transition={elapsed:0,duration:reducedMotion.matches?.25:.72,resolve,target}})}
 function show(i){current=i;buildLabels();place.textContent=spaces[i].name}
 function updateTransition(dt){
  if(!transition)return;
@@ -193,7 +217,7 @@ function updateTransition(dt){
  const markerOpacity=progress<.5?1-ease(progress*2):ease((progress-.5)*2);
  if(progress>=.5&&!transition.swapped){show(transition.target);transition.swapped=true}
  labelFade=markerOpacity;
- if(progress===1){material.map=incomingMaterial.uniforms.toImage.value;material.needsUpdate=true;sphere.rotation.y=heading(current);sphere.visible=true;incoming.visible=false;incomingMaterial.uniforms.fromImage.value=null;incomingMaterial.uniforms.toImage.value=null;incomingMaterial.uniforms.progress.value=0;const done=transition.resolve;transition=null;done()}
+ if(progress===1){material.map=incomingMaterial.uniforms.toImage.value;material.needsUpdate=true;placeSpace(sphere,current);sphere.rotation.y=heading(current);sphere.visible=true;incoming.visible=false;incomingMaterial.uniforms.fromImage.value=null;incomingMaterial.uniforms.toImage.value=null;incomingMaterial.uniforms.progress.value=0;const done=transition.resolve;transition=null;done()}
 }
 async function go(i,direction=new THREE.Vector3(0,0,-1)){
  if(busy||i===current&&material.map)return;
@@ -203,7 +227,7 @@ async function go(i,direction=new THREE.Vector3(0,0,-1)){
   renderer.initTexture(t);
   status.hidden=true;
   if(material.map)await blendTo(t,direction,i);
-  else{material.map=t;material.needsUpdate=true;sphere.rotation.y=heading(i);sphere.visible=true;show(i)}
+  else{material.map=t;material.needsUpdate=true;placeSpace(sphere,i);sphere.rotation.y=heading(i);sphere.visible=true;show(i)}
  }catch(e){console.error(e);status.hidden=false;status.replaceChildren(document.createTextNode(`${spaces[i].name} could not load. `));const b=document.createElement('button');b.textContent='Retry';b.onclick=()=>go(i,direction);status.append(b)}
  finally{busy=false;waitingFor=-1}
 }
@@ -230,9 +254,16 @@ Promise.all([import('three/addons/webxr/XRHandModelFactory.js'),import('three/ad
 // Edit mode (open with ?edit): shows yaw/pitch under the cursor for the
 // current space; click empty space to copy a ready-made label line.
 // ---------------------------------------------------------------------------
-function spotUnderPointer(){const d=ray.ray.direction;let y=deg(Math.atan2(d.x,-d.z)+heading(current));y=((y+540)%360)-180;return {yaw:Math.round(y),pitch:Math.round(deg(Math.asin(d.y)))}}
-function showSpot(){if(!editMode||current<0)return;const s=spotUnderPointer();editBox.textContent=`Editing "${spaces[current].id}"   yaw ${s.yaw}   pitch ${s.pitch}   · click to copy`}
-function copySpot(){const s=spotUnderPointer(),line=`{ "to": "", "yaw": ${s.yaw}, "pitch": ${s.pitch}, "distance": 4 },`;navigator.clipboard?.writeText(line).catch(()=>{});editBox.textContent='Copied: '+line;console.log(`[${spaces[current].id}]`,line)}
+// Click the FLOOR at a doorway: the real distance is worked out from the camera height, and the label
+// is placed at that distance just below eye level, so its depth matches the doorway.
+function spotUnderPointer(){
+ const d=ray.ray.direction;let y=deg(Math.atan2(d.x,-d.z)+heading(current));y=((y+540)%360)-180;
+ const p=deg(Math.asin(d.y)),s={yaw:Math.round(y),pitch:Math.round(p)};
+ if(p<-2)s.floor=Math.min(Math.round(eyeHeight(current)/Math.tan(rad(-p))*10)/10,roomSize(current));
+ return s;
+}
+function showSpot(){if(!editMode||current<0)return;const s=spotUnderPointer();editBox.textContent=`Editing "${spaces[current].id}"   yaw ${s.yaw}   pitch ${s.pitch}`+(s.floor?`   floor ${s.floor} m`:'')+'   · click to copy'}
+function copySpot(){const s=spotUnderPointer(),line=s.floor?`{ "to": "", "yaw": ${s.yaw}, "pitch": -4, "distance": ${s.floor} },`:`{ "to": "", "yaw": ${s.yaw}, "pitch": ${s.pitch}, "distance": ${Math.round(roomSize(current)*.6)} },`;navigator.clipboard?.writeText(line).catch(()=>{});editBox.textContent='Copied: '+line;console.log(`[${spaces[current].id}]`,line)}
 editBox.hidden=!editMode;
 
 // VR is the default: on a headset the loading screen offers Enter VR right away, and loading
@@ -240,15 +271,17 @@ editBox.hidden=!editMode;
 const loaderVR=document.querySelector('#loader-vr');
 let session=null;async function checkVR(){try{if(navigator.xr&&await navigator.xr.isSessionSupported('immersive-vr')){vr.disabled=false;vr.textContent='Enter VR';loaderVR.hidden=false;if(granted)enterVR()}else{vr.textContent='VR: open on Quest';vr.disabled=true}}catch{vr.textContent='VR unavailable'}}
 window.enterVR=enterVR;vr.onclick=loaderVR.onclick=enterVR;
-async function enterVR(){try{if(session){await session.end();return}session=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor','hand-tracking']});renderer.xr.setReferenceSpaceType('local');await renderer.xr.setSession(session);document.querySelector('#top').hidden=true;document.querySelector('#logo').hidden=true;document.querySelector('#hint').hidden=true;session.addEventListener('end',()=>{session=null;document.querySelector('#top').hidden=false;document.querySelector('#logo').hidden=false;vr.textContent='Enter VR'})}catch(e){session=null;status.hidden=false;status.textContent='VR could not start. Try Enter VR again.'}};
+async function enterVR(){try{if(session){await session.end();return}session=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor','hand-tracking']});floorLevel=!session.enabledFeatures||session.enabledFeatures.includes('local-floor');renderer.xr.setReferenceSpaceType(floorLevel?'local-floor':'local');await renderer.xr.setSession(session);document.querySelector('#top').hidden=true;document.querySelector('#logo').hidden=true;document.querySelector('#hint').hidden=true;session.addEventListener('end',()=>{session=null;document.querySelector('#top').hidden=false;document.querySelector('#logo').hidden=false;vr.textContent='Enter VR'})}catch(e){session=null;status.hidden=false;status.textContent='VR could not start. Try Enter VR again.'}};
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 let time=performance.now();
 renderer.setAnimationLoop(()=>{
  const now=performance.now(),dt=Math.min((now-time)/1000,.1);time=now;
- if(!renderer.xr.isPresenting){camera.rotation.set(-pitch,yaw,0,'YXZ');ray.setFromCamera(pointer,camera);hover=hit();if(!drag)showSpot();renderer.domElement.style.cursor=hover?'pointer':drag?'grabbing':editMode?'crosshair':'grab'}
+ // Without floor-level tracking, lower the room so the capture point sits at your head.
+ stage.position.y=renderer.xr.isPresenting&&!floorLevel?-rig.position.y:0;
+ if(!renderer.xr.isPresenting){camera.position.y=rig.position.y;camera.rotation.set(-pitch,yaw,0,'YXZ');ray.setFromCamera(pointer,camera);hover=hit();if(!drag)showSpot();renderer.domElement.style.cursor=hover?'pointer':drag?'grabbing':editMode?'crosshair':'grab'}
  else{hover=null;for(const c of controllers){ray.setFromXRController(c);const h=hit();if(h)hover=h}}
  animateLabels(dt);brand.visible=renderer.xr.isPresenting&&!loading;vrLoader.visible=renderer.xr.isPresenting&&loading;if(vrLoader.visible)vrShine.position.x=reducedMotion.matches?-1:(now/1400%1)*1.3-.15;
- const view=renderer.xr.isPresenting?renderer.xr.getCamera():camera;sphere.position.copy(view.position);incoming.position.copy(view.position);eyeLight.position.copy(view.position);
+ const view=renderer.xr.isPresenting?renderer.xr.getCamera():camera;eyeLight.position.copy(view.position);
  updateTransition(dt);renderer.render(world,camera);
 });
 loadLogo().catch(e=>console.warn('Logo could not load',e));
