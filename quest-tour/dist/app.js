@@ -273,7 +273,23 @@ async function go(i,direction=new THREE.Vector3(0,0,-1)){
 // ---------------------------------------------------------------------------
 const ray=new THREE.Raycaster(),pointer=new THREE.Vector2(),tmp=new THREE.Vector3();
 function hit(){let o=ray.intersectObjects(group.children,true)[0]?.object;while(o&&o.parent!==group)o=o.parent;return o?.userData.target!==undefined?o:null}
-function activate(){const m=hit();if(m){m.getWorldPosition(tmp);go(m.userData.target,new THREE.Vector3(tmp.x,0,tmp.z).normalize())}else if(editMode)copySpot()}
+// Travel direction is measured inside the room (stage space), so it stays right after the user has snap-turned.
+function activate(){const m=hit();if(m){stage.worldToLocal(m.getWorldPosition(tmp));go(m.userData.target,new THREE.Vector3(tmp.x,0,tmp.z).normalize())}else if(editMode)copySpot()}
+
+// Snap turn: push either thumbstick left/right to turn 30°. The room pivots around your head, so you stay in place.
+const SNAP=rad(30);let turnReady=true;
+function snapTurn(angle){
+ const h=renderer.xr.getCamera().position,c=Math.cos(angle),s=Math.sin(angle),px=stage.position.x-h.x,pz=stage.position.z-h.z;
+ stage.rotation.y+=angle;stage.position.x=h.x+c*px+s*pz;stage.position.z=h.z-s*px+c*pz;
+}
+function readThumbsticks(){
+ const s=renderer.xr.getSession();if(!s)return;
+ let x=0;
+ for(const src of s.inputSources){const a=src.gamepad?.axes;if(!a?.length)continue;const v=a.length>=4?a[2]:a[0];if(Math.abs(v)>Math.abs(x))x=v}
+ // Turn once per push: the stick has to come back near the centre before the next turn.
+ if(turnReady&&Math.abs(x)>.7){turnReady=false;snapTurn(Math.sign(x)*SNAP)}
+ else if(Math.abs(x)<.3)turnReady=true;
+}
 renderer.domElement.addEventListener('pointerdown',e=>{drag=true;moved=false;last={x:e.clientX,y:e.clientY};renderer.domElement.setPointerCapture(e.pointerId)});renderer.domElement.addEventListener('pointermove',e=>{pointer.set(e.clientX/innerWidth*2-1,1-e.clientY/innerHeight*2);if(drag){const dx=e.clientX-last.x,dy=e.clientY-last.y;if(Math.abs(dx)+Math.abs(dy)>2)moved=true;yaw-=dx*.004;pitch=Math.max(-1.45,Math.min(1.45,pitch+dy*.004));last={x:e.clientX,y:e.clientY}}});renderer.domElement.addEventListener('pointerup',e=>{drag=false;if(!moved){pointer.set(e.clientX/innerWidth*2-1,1-e.clientY/innerHeight*2);ray.setFromCamera(pointer,camera);activate()}});renderer.domElement.addEventListener('pointercancel',()=>drag=false);
 const controllers=[];for(let i=0;i<2;i++){const c=renderer.xr.getController(i);world.add(c);const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(0,0,-5)]),new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.5}));c.add(line);c.addEventListener('select',()=>{ray.setFromXRController(c);activate()});controllers.push(c)}
 // Quest hands: real hand meshes with hand tracking (pinch to select), controller models when holding controllers.
@@ -307,7 +323,7 @@ editBox.hidden=!editMode;
 const loaderVR=document.querySelector('#loader-vr');
 let session=null;async function checkVR(){try{if(navigator.xr&&await navigator.xr.isSessionSupported('immersive-vr')){vr.disabled=false;vr.textContent='Enter VR';loaderVR.hidden=false;if(granted)enterVR()}else{vr.textContent='VR: open on Quest';vr.disabled=true}}catch{vr.textContent='VR unavailable'}}
 window.enterVR=enterVR;vr.onclick=loaderVR.onclick=enterVR;
-async function enterVR(){try{if(session){await session.end();return}session=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor','hand-tracking']});floorLevel=!session.enabledFeatures||session.enabledFeatures.includes('local-floor');renderer.xr.setReferenceSpaceType(floorLevel?'local-floor':'local');await renderer.xr.setSession(session);document.querySelector('#top').hidden=true;document.querySelector('#logo').hidden=true;document.querySelector('#hint').hidden=true;session.addEventListener('end',()=>{session=null;document.querySelector('#top').hidden=false;document.querySelector('#logo').hidden=false;vr.textContent='Enter VR'})}catch(e){session=null;status.hidden=false;status.textContent='VR could not start. Try Enter VR again.'}};
+async function enterVR(){try{if(session){await session.end();return}session=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor','hand-tracking']});floorLevel=!session.enabledFeatures||session.enabledFeatures.includes('local-floor');renderer.xr.setReferenceSpaceType(floorLevel?'local-floor':'local');await renderer.xr.setSession(session);document.querySelector('#top').hidden=true;document.querySelector('#logo').hidden=true;document.querySelector('#hint').hidden=true;session.addEventListener('end',()=>{session=null;stage.rotation.y=0;stage.position.set(0,0,0);turnReady=true;document.querySelector('#top').hidden=false;document.querySelector('#logo').hidden=false;vr.textContent='Enter VR'})}catch(e){session=null;status.hidden=false;status.textContent='VR could not start. Try Enter VR again.'}};
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 let time=performance.now();
 renderer.setAnimationLoop(()=>{
@@ -315,6 +331,7 @@ renderer.setAnimationLoop(()=>{
  // In VR the capture point always sits at your actual eye height, so the floor is cameraHeight below your eyes
  // whether you stand, sit, or the headset's floor is set wrong. Turning and leaning still give real parallax.
  stage.position.y=renderer.xr.isPresenting?renderer.xr.getCamera().position.y-rig.position.y:0;
+ if(renderer.xr.isPresenting)readThumbsticks();
  if(!renderer.xr.isPresenting){camera.position.y=rig.position.y;camera.rotation.set(-pitch,yaw,0,'YXZ');ray.setFromCamera(pointer,camera);hover=hit();if(!drag)showSpot();renderer.domElement.style.cursor=hover?'pointer':drag?'grabbing':editMode?'crosshair':'grab'}
  else{hover=null;for(const c of controllers){ray.setFromXRController(c);const h=hit();if(h)hover=h}}
  animateLabels(dt);brand.visible=renderer.xr.isPresenting&&!loading;vrLoader.visible=renderer.xr.isPresenting&&loading;if(vrLoader.visible)vrShine.position.x=reducedMotion.matches?-1:(now/1400%1)*1.3-.15;

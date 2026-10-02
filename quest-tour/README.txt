@@ -21,6 +21,7 @@ Quest 3:
   loading screen. You don't need to wait: loading continues inside VR with the
   same logo and progress bar. (Browsers only allow VR to start after a click;
   arriving from another VR page on Quest enters VR automatically.)
+  Push either thumbstick left/right to turn 30 degrees (snap turn).
   Point a controller at a destination and press the trigger, or with hand
   tracking point your hand and pinch. Hand and controller 3D models load from
   cdn.jsdelivr.net (official three.js add-ons and WebXR input profiles), so they
